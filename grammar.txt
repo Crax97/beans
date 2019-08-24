@@ -1,0 +1,43 @@
+program -> statement* EOF
+
+statement -> decl |
+expr |
+ifStmt |
+whileStmt |
+forStmt |
+"return" expr |
+"break" |
+"continue" |
+"pass"
+
+decl -> varDecl |
+    funDecl |
+    structDecl |
+    enumDecl
+
+varDecl -> "var" ID ("=" expr)?
+funDecl -> "fun" ID "(" arglist ")" statement* "end"
+structDecl -> "struct" ID "{" arglist? "}"
+enumDecl -> "enum" ID "{" enumlist? "}"
+
+arglist -> ID ("," ID)*
+enumlist -> ID ( = NUM)? ("," ID (= NUM)?*
+paramlist -> expr ("," expr)*
+
+expr -> equality | assign | lambdaExpr
+lambdaExpr -> "lambda" "(" arglist ")" statement* "end"
+assign -> call ( "=" equality)*
+equality -> comparison ( ( "==" | "!=" ) comparison)*
+comparison -> shift ( ("<" | ">" | "<=" | ">=") shift)*
+shift -> or ( ( "<<" | ">>" ) or)*
+or -> and ("or" and)*
+and -> sum ("and" sum)* 
+sum ( ("+" | "-") product)*
+product ->  unary ( ( "*" | "/" ) unary)*
+unary -> ("+" | "-" | "not")? unary | call
+call -> literal ("." ID)* ( "(" paramlist? ")" )?
+literal -> NUM | ID | STRING | true | false | "(" expr ")"
+
+ifStmt -> "if" expr "then" statement* ("elif" expr "then" statement* )* ("else" statement*)? "end"
+whileStmt -> "while" expr "do" stmt* "end"
+forStmt -> "for" ID "in" expr "do" statement* "end"
