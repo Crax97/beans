@@ -6,7 +6,7 @@ pub enum Stmt {
     ExprStmt(Expr),
     If((Expr, Vec<Stmt>), Vec<(Expr, Vec<Stmt>)>, Vec<Stmt>),
     While(Expr, Vec<Stmt>),
-    For(Id, Expr, Vec<Stmt>),
+    Block(Vec<Stmt>),
     Var(Id, Option<Expr>),
     FunDef(Id, Vec<Id>, Vec<Stmt>),
     StructDef(Id, Vec<Id>),
@@ -30,7 +30,7 @@ pub enum Expr {
     Grouping(Box<Expr>),
     Assign(Box<Expr>, Box<Expr>),
     LambdaDef(Vec<String>, Vec<Stmt>),
-    Empty,
+    Nil,
 }
 
 impl Expr {
