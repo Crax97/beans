@@ -3,7 +3,7 @@ import sys
 top = """
 use std::string::String;
 use std::collections::HashMap;
-#[derive(PartialEq, PartialOrd, Copy, Clone)]
+#[derive(PartialEq, PartialOrd, Copy, Clone, Debug)]
 pub enum TokenType { 
 """
 bottom = """
@@ -22,6 +22,7 @@ map_bottom = """
 
 token_struct = """
 
+#[derive(Debug)]
 pub enum Value {
     Empty,
     Num(f64),
@@ -29,18 +30,52 @@ pub enum Value {
     Id(String),
 }
 
+#[derive(Debug)]
 pub struct Token {
     token_type : TokenType,
-    line: u8,
+    line: u16,
     val: Value,
 }
 
 impl Token{
-    pub fn new(token_type : TokenType, line : u8, val : Value) -> Token {
+    pub fn new(token_type : TokenType, line : u16, val : Value) -> Token {
         Token {
             token_type : token_type,
             line : line,
             val : val,
+        }
+    }
+
+    pub fn get_val(&self) -> &Value {
+        &self.val
+    }
+
+    pub fn get_type(&self) -> TokenType {
+        self.token_type
+    }
+
+    pub fn get_line(&self) -> u16 {
+        self.line
+    }
+
+    pub fn as_f64(&self) -> f64 {
+        match self.val {
+            Value::Num(n) => n,
+            _ => panic!("Falied converting Value to f64!")
+        }
+    }
+
+    pub fn as_String(&self) -> String {
+        match &self.val {
+            Value::Str(s) => s.clone(),
+            _ => panic!("Falied converting Value to String!")
+        }
+    }
+
+    pub fn as_Id(&self) -> String {
+        match &self.val {
+            Value::Id(s) => s.clone(),
+            _ => panic!("Falied converting Value to Id!")
         }
     }
 }
@@ -95,7 +130,7 @@ def main():
 
     input_file = open(sys.argv[1], "r")
     tokens = {("", "Eof"), ("", "Str"), ("", "Num"),
-              ("", "Boolean"), ("", "Identifier")}
+              ("", "Identifier")}
     c = input_file.read(1)
     while c != '':
         if c == '"':

@@ -1,22 +1,22 @@
 program -> statement* EOF
 
 statement -> decl |
-expr |
+expr ";" |
 ifStmt |
 whileStmt |
 forStmt |
-"return" expr |
-"break" |
-"continue" |
-"pass"
+"return" expr ";" |
+"break" ";" |
+"continue" ";" |
+"pass" ";"
 
-decl -> varDecl |
+decl -> varDecl|
     funDecl |
     structDecl |
     enumDecl
 
-varDecl -> "var" ID ("=" expr)?
-funDecl -> "fun" ID "(" arglist ")" statement* "end"
+varDecl -> "var" ID ("=" expr)? ";"
+funDecl -> "function" ID "(" arglist? ")" statement* "end"
 structDecl -> "struct" ID "{" arglist? "}"
 enumDecl -> "enum" ID "{" enumlist? "}"
 
@@ -26,17 +26,19 @@ paramlist -> expr ("," expr)*
 
 expr -> equality | assign | lambdaExpr
 lambdaExpr -> "lambda" "(" arglist ")" statement* "end"
-assign -> call ( "=" equality)*
-equality -> comparison ( ( "==" | "!=" ) comparison)*
-comparison -> shift ( ("<" | ">" | "<=" | ">=") shift)*
-shift -> or ( ( "<<" | ">>" ) or)*
+assign -> equality ( "=" assign)*
+equality -> or ( ( "==" | "!=" ) or)*
 or -> and ("or" and)*
-and -> sum ("and" sum)* 
+and -> comparison ("and" comparison)* 
+comparison -> shift ( ("<" | ">" | "<=" | ">=") shift)*
+shift -> bit_or ( ( "<<" | ">>" ) bit_or)*
+bit_or -> bit_and ("|" bit_and)*
+bit_and -> sum ( "&" sum)*
 sum ( ("+" | "-") product)*
 product ->  unary ( ( "*" | "/" ) unary)*
-unary -> ("+" | "-" | "not")? unary | call
+unary -> ("+" | "-" | "not")? call
 call -> literal ("." ID)* ( "(" paramlist? ")" )?
-literal -> NUM | ID | STRING | true | false | "(" expr ")"
+literal -> NUM | ID | STRING | "true" | "false" | "(" expr ")"
 
 ifStmt -> "if" expr "then" statement* ("elif" expr "then" statement* )* ("else" statement*)? "end"
 whileStmt -> "while" expr "do" stmt* "end"
