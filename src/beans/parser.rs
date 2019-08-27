@@ -96,6 +96,27 @@ mod tests {
 
         run_str(prog);
     }
+
+    #[test]
+    fn complex_program() {
+        run_str(
+            "struct Point {x, y}
+        enum Colors {Red, Blue = 3}
+        function dostuff(s, e)
+            if e == Colors.Red then
+                s.x = 10;
+                s.y = 20;
+            else 
+                s.x = 30;
+                s.y = 40;
+            end
+        end
+
+        var p = Point();
+        dostuff(p, Colors.Blue);
+        ",
+        )
+    }
 }
 
 pub struct Parser {
