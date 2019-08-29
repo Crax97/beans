@@ -17,21 +17,27 @@ pub enum Value {
     Nil,
 }
 
-pub struct Symbol {
+struct Symbol {
     v: Value,
-    childs: HashMap<String, Symbol>,
+    childs: HashMap<String, RefCell<Box<Symbol>>>,
 }
 impl Symbol {
-    pub fn get(&self, id: &String) -> Option<&Symbol> {
+    pub fn new (v : Value) -> Symbol {
+        Symbol {
+            v,
+            childs : HashMap::new()
+        }
+    }
+    pub fn get(&self, id: &String) -> Option<&RefCell<Box<Symbol>>> {
         self.childs.get(id)
     }
 
     pub fn set(&mut self, id: String, sym: Symbol) {
-        self.childs.insert(id, sym);
+        self.childs.insert(id, RefCell::new(Box::new(sym)));
     }
 }
 
-pub struct Closure {
+struct Closure {
     env: Box<Env>,
     params: Vec<String>,
     fun: Expr,
@@ -51,19 +57,20 @@ impl Call for Closure {
     }
 }
 
-pub struct BaseStruct {
+struct BaseStruct {
     fields: Vec<String>,
+    name: String,
 }
 
 impl BaseStruct {
-    fn new(fields: Vec<String>) -> BaseStruct {
-        BaseStruct { fields }
+    fn new(fields: Vec<String>, name : String) -> BaseStruct {
+        BaseStruct { fields, name }
     }
 }
 impl Call for BaseStruct {
     fn call(&self, exprs: Vec<Expr>) -> Value {
         // evaluate expressions
-        Value::StructInstance(StructInstance::new(HashMap::new()))
+        Value::StructInstance(StructInstance::new(HashMap::new(), RefCell::new(Box::new(Symbol::new(Value::Nil)))))
     }
     fn arity(&self) -> usize {
         self.fields.len()
@@ -71,16 +78,29 @@ impl Call for BaseStruct {
 }
 
 struct StructInstance {
+    parent : RefCell<Box<Symbol>>,
     fields: HashMap<String, Expr>,
 }
 
 impl StructInstance {
-    fn new(fields: HashMap<String, Expr>) -> StructInstance {
-        StructInstance { fields }
+    fn new(fields: HashMap<String, Expr>, parent : RefCell<Box<Symbol>>) -> StructInstance {
+        StructInstance { parent, fields }
+    }
+
+    fn get(&self, id: &String) -> Option<&Expr> {
+        self.fields.get(id)
+    }
+
+    fn set(&self, id: &String, e: Expr) {
+        if self.fields.contains_key(id) {
+            //insert e into self
+        } else {
+            panic!()
+        }
     }
 }
 
-pub struct Env {
+struct Env {
     symbols: HashMap<String, Symbol>,
     enclosing: Option<Box<Env>>,
 }
