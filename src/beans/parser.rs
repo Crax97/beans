@@ -3,6 +3,7 @@ use super::node::*;
 use super::tokens::Token;
 use super::tokens::TokenType;
 use super::tokens::TokenType::*;
+use std::rc::Rc;
 
 #[cfg(test)]
 mod tests {
@@ -201,9 +202,6 @@ impl Parser {
         if self.match_next(vec![Continue]) {
             return Stmt::Continue;
         }
-        if self.match_next(vec![Pass]) {
-            return Stmt::Pass;
-        }
 
         let ex = Stmt::ExprStmt(self.expr());
         self.expect(Semicolon);
@@ -269,12 +267,12 @@ impl Parser {
     }
 
     fn parse_if(&mut self) -> Stmt {
+        let mut branches: Vec<(Expr, Vec<Stmt>)> = vec![];
         let if_then = self.if_cond_and_exprs();
-
-        let mut elifs: Vec<(Expr, Vec<Stmt>)> = vec![];
+        branches.push(if_then);
         while self.lexer.prev().unwrap().get_type() == Elif {
             let elif = self.if_cond_and_exprs();
-            elifs.push(elif);
+            branches.push(elif);
         }
 
         let mut else_block: Vec<Stmt> = vec![];
@@ -287,7 +285,7 @@ impl Parser {
             } {}
         }
 
-        Stmt::If(if_then, elifs, else_block)
+        Stmt::If(branches, else_block)
     }
 
     fn if_cond_and_exprs(&mut self) -> (Expr, Vec<Stmt>) {
@@ -353,7 +351,7 @@ impl Parser {
         self.expect(LeftParen);
         let params = self.args();
         let body = self.body();
-        Stmt::FunDef(id, params, body)
+        Stmt::FunDef(id, params, Rc::new(body))
     }
 
     fn expr(&mut self) -> Expr {

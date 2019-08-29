@@ -1,20 +1,20 @@
 use super::tokens::*;
+use std::rc::Rc;
 use String as Id;
 
 #[derive(Debug)]
 pub enum Stmt {
     ExprStmt(Expr),
-    If((Expr, Vec<Stmt>), Vec<(Expr, Vec<Stmt>)>, Vec<Stmt>),
+    If(Vec<(Expr, Vec<Stmt>)>, Vec<Stmt>),
     While(Expr, Vec<Stmt>),
     Block(Vec<Stmt>),
     Var(Id, Option<Expr>),
-    FunDef(Id, Vec<Id>, Vec<Stmt>),
+    FunDef(Id, Vec<Id>, Rc<Vec<Stmt>>),
     StructDef(Id, Vec<Id>),
     EnumDef(Id, Vec<(Id, Option<Expr>)>),
     Return(Expr),
     Break,
     Continue,
-    Pass,
 }
 
 #[derive(Debug)]

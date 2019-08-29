@@ -1,4 +1,6 @@
 use super::node::Expr;
+use super::node::Stmt;
+use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -12,38 +14,39 @@ pub enum Value {
     Str(String),
     Bool(bool),
     Callable(Box<dyn Call>),
+    Enum(String, Vec<(String, f64)>),
     Struct(BaseStruct),
     StructInstance(StructInstance),
     Nil,
 }
 
-struct Symbol {
-    v: Value,
-    childs: HashMap<String, RefCell<Box<Symbol>>>,
+pub struct Symbol {
+    v: Rc<Value>,
+    childs: HashMap<String, Symbol>,
 }
 impl Symbol {
-    pub fn new (v : Value) -> Symbol {
+    pub fn new (v : Rc<Value>) -> Symbol {
         Symbol {
             v,
             childs : HashMap::new()
         }
     }
-    pub fn get(&self, id: &String) -> Option<&RefCell<Box<Symbol>>> {
+    pub fn get(&self, id: &String) -> Option<&Symbol> {
         self.childs.get(id)
     }
 
     pub fn set(&mut self, id: String, sym: Symbol) {
-        self.childs.insert(id, RefCell::new(Box::new(sym)));
+        self.childs.insert(id, sym);
     }
 }
 
-struct Closure {
-    env: Box<Env>,
+pub struct Closure {
+    env: Rc<RefCell<Env>>,
     params: Vec<String>,
-    fun: Expr,
+    fun: Rc<Vec<Stmt>>,
 }
 impl Closure {
-    fn new(fun: Expr, env: Box<Env>, params: Vec<String>) -> Closure {
+    pub fn new(fun: Rc<Vec<Stmt>>, env: Rc<RefCell<Env>>, params: Vec<String>) -> Closure {
         Closure { env, params, fun }
     }
 }
@@ -57,33 +60,33 @@ impl Call for Closure {
     }
 }
 
-struct BaseStruct {
+pub struct BaseStruct {
     fields: Vec<String>,
     name: String,
 }
 
 impl BaseStruct {
-    fn new(fields: Vec<String>, name : String) -> BaseStruct {
+    pub fn new(fields: Vec<String>, name : String) -> BaseStruct {
         BaseStruct { fields, name }
     }
 }
 impl Call for BaseStruct {
     fn call(&self, exprs: Vec<Expr>) -> Value {
         // evaluate expressions
-        Value::StructInstance(StructInstance::new(HashMap::new(), RefCell::new(Box::new(Symbol::new(Value::Nil)))))
+        Value::StructInstance(StructInstance::new(HashMap::new(), Rc::new(Box::new(Value::Nil))))
     }
     fn arity(&self) -> usize {
         self.fields.len()
     }
 }
 
-struct StructInstance {
-    parent : RefCell<Box<Symbol>>,
+pub struct StructInstance {
+    parent : Rc<Box<Value>>,
     fields: HashMap<String, Expr>,
 }
 
 impl StructInstance {
-    fn new(fields: HashMap<String, Expr>, parent : RefCell<Box<Symbol>>) -> StructInstance {
+    fn new(fields: HashMap<String, Expr>, parent : Rc<Box<Value>>) -> StructInstance {
         StructInstance { parent, fields }
     }
 
@@ -100,25 +103,25 @@ impl StructInstance {
     }
 }
 
-struct Env {
+pub struct Env {
     symbols: HashMap<String, Symbol>,
     enclosing: Option<Box<Env>>,
 }
 
 impl Env {
-    fn new() -> Env {
+    pub fn new() -> Env {
         Env {
             symbols: HashMap::new(),
             enclosing: None,
         }
     }
 
-    fn new_enclosing(enclosing: Box<Env>) -> Env {
+    pub fn new_enclosing(enclosing: Box<Env>) -> Env {
         let mut e = Env::new();
         e.enclosing = Some(enclosing);
         e
     }
-    fn get(&self, s: &String) -> Option<&Symbol> {
+    pub fn get(&self, s: &String) -> Option<&Symbol> {
         if self.symbols.contains_key(s) {
             return self.symbols.get(s);
         }
@@ -128,7 +131,7 @@ impl Env {
         }
     }
 
-    fn set(&mut self, s: String, sym: Symbol) {
+    pub fn set(&mut self, s: String, sym: Symbol) {
         self.symbols.insert(s, sym);
     }
 }
