@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
 mod beans;
+use beans::environments::*;
 fn main() {
     let test = String::from("2 + 3 - 6");
     let mut parser = beans::parser::Parser::new(beans::lexer::Lexer::new(test));
