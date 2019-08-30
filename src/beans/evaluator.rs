@@ -1,13 +1,15 @@
 use super::node::Expr::*;
 use super::node::Stmt::*;
 use super::node::*;
+use super::tokens::TokenType::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::environments::*;
+use std::borrow::Borrow;
 
 pub enum StatementResult {
-    Ok(Option<Rc<Value>>),
+    Ok(Option<Value>),
     Return(Value),
     Break,
     Continue,
@@ -30,6 +32,14 @@ impl Evaluator {
             global: global.clone(),
             current: global,
         }
+    }
+
+    pub fn evaluate_in_env(&mut self, stmts: &Vec<Stmt>, env: Env) -> StatementResult {
+        let old = self.current.clone();
+        self.current = Rc::new(RefCell::new(env));
+        let result = self.exec_block(stmts);
+        self.current = old;
+        result
     }
 
     fn is_true(v: &Value) -> bool {
@@ -88,10 +98,10 @@ impl Evaluator {
         if let Some(expr) = initializer {
             value = self.evaluate(&expr);
         }
-        let ret = Rc::new(value);
+        let ret = value.clone();
         self.current
             .borrow_mut()
-            .set(id.clone(), Symbol::new(ret.clone()));
+            .set(id.clone(), Symbol::new(value));
         StatementResult::Ok(Some(ret))
     }
     fn exec_fundef(
@@ -100,25 +110,25 @@ impl Evaluator {
         params: &Vec<String>,
         block: &Rc<Vec<Stmt>>,
     ) -> StatementResult {
-        let closure = Value::Callable(Box::new(Closure::new(
+        let closure = Value::Callable(Rc::new(Box::new(Closure::new(
             block.clone(),
             self.current.clone(),
             params.to_vec(),
-        )));
-        let ret = Rc::new(closure);
+        ))));
+        let ret = closure.clone();
         self.current
             .borrow_mut()
-            .set(id.clone(), Symbol::new(ret.clone()));
+            .set(id.clone(), Symbol::new(closure));
         StatementResult::Ok(Some(ret))
     }
 
     fn exec_structdef(&mut self, name: &String, members: &Vec<String>) -> StatementResult {
-        let strukt = Value::Struct(BaseStruct::new(members.to_vec(), name.clone()));
-        let strukt_ref = Rc::new(strukt);
+        let strukt = Value::Struct(Rc::new(BaseStruct::new(members.to_vec(), name.clone())));
+        let ret = strukt.clone();
         self.current
             .borrow_mut()
-            .set(name.clone(), Symbol::new(strukt_ref.clone()));
-        StatementResult::Ok(Some(strukt_ref))
+            .set(name.clone(), Symbol::new(strukt));
+        StatementResult::Ok(Some(ret))
     }
 
     fn exec_enumdef(
@@ -142,39 +152,142 @@ impl Evaluator {
             variants.push((value.0.clone(), assoc_value));
         }
         let enumt = Value::Enum(name.clone(), variants);
-        let enumt_ref = Rc::new(enumt);
+        let ret = enumt.clone();
         self.current
             .borrow_mut()
-            .set(name.clone(), Symbol::new(enumt_ref.clone()));
-        StatementResult::Ok(Some(enumt_ref))
+            .set(name.clone(), Symbol::new(enumt));
+        StatementResult::Ok(Some(ret))
     }
 
     fn exec_return(&mut self, e: &Expr) -> StatementResult {
         let v = self.evaluate(e);
         StatementResult::Return(v)
     }
+
+    fn negate(v : Value) -> Value {
+        match v {
+            Value::Num(n) => Value::Num(-n),
+            Value::Bool(b) => Value::Bool(!b),
+            _ => panic!("Value can't be negated!")
+        }
+    }
+
+    fn arithmetic(&mut self, le : &Expr, op : super::tokens::TokenType, re : &Expr) -> Value {
+        match op {
+            Plus => { let l = self.evaluate(le); let r = self.evaluate(re);
+                 if l.is_numeric() && r.is_numeric() { 
+                Value::Num(l.as_numeric() + r.as_numeric())
+                } else {
+                    return match (l, r) {
+                        (Value::Str(ls), Value::Str(rs)) => Value::Str(format!("{}{}", ls, rs)),
+                        (_, _) => panic!("Unsummable types!")
+                    };
+                }
+            },
+            Minus => {let l = self.evaluate(le); let r = self.evaluate(re);Value::Num(l.as_numeric() - r.as_numeric()) },
+            Star => {let l = self.evaluate(le); let r = self.evaluate(re);Value::Num(l.as_numeric() * r.as_numeric()) },
+            Slash => { let l = self.evaluate(le); let r = self.evaluate(re);let divisor = r.as_numeric();
+                        Value::Num(if divisor != 0.0 { 
+                                    l.as_numeric() / r.as_numeric() 
+                                } else { 
+                                    0.0
+                                }) 
+                    },
+            Less => {let l = self.evaluate(le); let r = self.evaluate(re);Value::Bool(l.as_numeric() < r.as_numeric())},
+            LessEquals => {let l = self.evaluate(le); let r = self.evaluate(re);Value::Bool(l.as_numeric() <= r.as_numeric())},
+            More => {let l = self.evaluate(le); let r = self.evaluate(re);Value::Bool(l.as_numeric() > r.as_numeric())},
+            MoreEquals => {let l = self.evaluate(le); let r = self.evaluate(re);Value::Bool(l.as_numeric() >= r.as_numeric())},
+            EqualsEquals => {let l = self.evaluate(le); let r = self.evaluate(re);Value::Bool(l.as_numeric() == r.as_numeric())},
+            BangEquals => {let l = self.evaluate(le); let r = self.evaluate(re);Value::Bool(l.as_numeric() != r.as_numeric())},
+
+            LessLess => {let l = self.evaluate(le); let r = self.evaluate(re);Value::Num( ( (l.as_numeric() as u64) << (r.as_numeric() as u64)) as f64)},
+            MoreMore => {let l = self.evaluate(le); let r = self.evaluate(re);Value::Num( ( (l.as_numeric() as u64) >> (r.as_numeric() as u64)) as f64)},
+            Ampersand => {let l = self.evaluate(le); let r = self.evaluate(re);Value::Num( ( (l.as_numeric() as u64) & (r.as_numeric() as u64)) as f64)},
+            Pipe => {let l = self.evaluate(le); let r = self.evaluate(re);Value::Num( ( (l.as_numeric() as u64) | (r.as_numeric() as u64)) as f64)},
+            And => {
+                let l = self.evaluate(le);
+                if !Evaluator::is_true(&l) {
+                    Value::Bool(false)
+                } else {
+                    self.evaluate(re)
+                }
+            },
+            Or => {
+                let l = self.evaluate(le);
+                if Evaluator::is_true(&l) {
+                    Value::Bool(true)
+                } else {
+                    self.evaluate(re)
+                }
+            },
+            _ => unreachable!()
+        }
+    }
+
+    fn do_call(&mut self, fun : &Expr, args : &Vec<Expr>) -> Value {
+        let callable_maybe = self.evaluate(fun);
+        match callable_maybe {
+            Value::Callable(call) => {
+                if call.arity() != args.len() {
+                    panic!("Arguments differ in size!");
+                }
+
+                let mut args_evaluated : Vec<Value> = Vec::new();
+                for arg in args {
+                    let evaluated = self.evaluate(arg);
+                    args_evaluated.push(evaluated);
+                }
+
+                call.call(self, args_evaluated)
+
+            },  
+            _ => panic!("Not callable!")
+        }
+    }
+
+    fn get_symbol(&self, s : &String) -> Value {
+        self.current.as_ref().borrow().get(s).get_value()
+    }
 }
 
 impl Evaluate<StatementResult> for Evaluator {
     fn execute_statement(&mut self, s: &Stmt) -> StatementResult {
         match s {
-            ExprStmt(e) => StatementResult::Ok(Some(Rc::new(self.evaluate(&e)))),
-            If(branches, else_block) => self.exec_if(branches, else_block),
-            While(cond, block) => self.exec_while(cond, block),
-            Block(stmts) => self.exec_block(stmts),
-            Var(id, expr) => self.exec_var(id, expr),
-            FunDef(name, params, block) => self.exec_fundef(name, params, block),
-            StructDef(name, members) => self.exec_structdef(name, members),
-            EnumDef(name, values) => self.exec_enumdef(name, values),
-            Return(expr) => self.exec_return(expr),
-            Break => StatementResult::Break,
-            Continue => StatementResult::Continue,
+            Stmt::ExprStmt(e) => StatementResult::Ok(Some(self.evaluate(&e))),
+            Stmt::If(branches, else_block) => self.exec_if(branches, else_block),
+            Stmt::While(cond, block) => self.exec_while(cond, block),
+            Stmt::Block(stmts) => self.exec_block(stmts),
+            Stmt::Var(id, expr) => self.exec_var(id, expr),
+            Stmt::FunDef(name, params, block) => self.exec_fundef(name, params, block),
+            Stmt::StructDef(name, members) => self.exec_structdef(name, members),
+            Stmt::EnumDef(name, values) => self.exec_enumdef(name, values),
+            Stmt::Return(expr) => self.exec_return(expr),
+            Stmt::Break => StatementResult::Break,
+            Stmt::Continue => StatementResult::Continue,
         }
     }
 
     fn evaluate(&mut self, e: &Expr) -> Value {
         match e {
-            _ => Value::Bool(false),
+            Expr::Num(n) => Value::Num(*n),
+            Expr::Str(s) => Value::Str(s.clone()),
+            Expr::Bool(b) => Value::Bool(*b),
+
+            Unary(op, e) => match op {
+                Plus => self.evaluate(e),
+                Minus =>  {Evaluator::negate(self.evaluate(e))},
+                Bang => {Evaluator::negate(self.evaluate(e))},
+                _ => unreachable!()
+            },
+            Binary(l, op, r) => {
+                self.arithmetic(l, *op, r)
+            }
+            Grouping(e) => self.evaluate(e),
+            Id(name) => { self.get_symbol(name)},
+            Call(exp, args) => {
+                self.do_call(exp, args)
+            },
+            _ => {panic!("Asd")}
         }
     }
 }
