@@ -3,35 +3,11 @@ use super::node::Stmt::*;
 use super::node::*;
 use super::tokens::Token;
 use super::tokens::TokenType::*;
+use float_cmp::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::environments::*;
-
-#[cfg(test)]
-mod tests {
-    use super::super::*;
-    use super::*;
-    #[test]
-    fn try_simple_expr() {
-        let expr = "3 * 2;";
-        let lexer = lexer::Lexer::new(String::from(expr));
-        let mut parser = parser::Parser::new(lexer);
-        let stmts = parser.parse();
-
-        let mut evaluator = Evaluator::new();
-        for stmt in stmts {
-            match evaluator.execute_statement(&stmt) {
-                StatementResult::Ok(sv) => {
-                    if let Some(v) = sv {
-                        println!("{}", v.stringfiy());
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-}
 
 pub enum StatementResult {
     Ok(Option<Value>),
@@ -255,7 +231,9 @@ impl Evaluator {
             EqualsEquals => {
                 let l = self.evaluate(le).borrow().get_value();
                 let r = self.evaluate(re).borrow().get_value();
-                Value::Bool(l.as_numeric() == r.as_numeric())
+                let ln = l.as_numeric();
+                let rn = r.as_numeric();
+                Value::Bool(ln.approx_eq(rn, F64Margin::default()))
             }
             BangEquals => {
                 let l = self.evaluate(le).borrow().get_value();
@@ -305,6 +283,7 @@ impl Evaluator {
 
     fn do_call(&mut self, fun: &Expr, args: &Vec<Expr>) -> Rc<RefCell<Symbol>> {
         let callable_maybe = self.evaluate(fun).borrow().get_value();
+
         let result = match callable_maybe {
             Value::Callable(call) => {
                 if call.arity() != args.len() {

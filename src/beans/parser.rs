@@ -316,10 +316,7 @@ impl Parser {
 
         // generator().next()
         let generator_it = Expr::Call(
-            Box::new(Expr::Get(
-                Box::new(generator),
-                var.clone(),
-            )),
+            Box::new(Expr::Get(Box::new(generator), var.clone())),
             vec![],
         );
 
@@ -539,8 +536,8 @@ impl Parser {
                 v.push(e.as_Id());
                 self.match_next(vec![Comma])
             } {}
+            self.expect(RightParen);
         }
-        self.expect(RightParen);
         v
     }
     fn body(&mut self) -> Vec<Stmt> {

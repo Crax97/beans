@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
+extern crate float_cmp;
 mod beans;
 use beans::environments::*;
 fn main() {
