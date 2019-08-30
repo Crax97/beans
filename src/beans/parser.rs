@@ -355,7 +355,7 @@ impl Parser {
         if self.match_next(vec![Lambda]) {
             return self.lambda();
         }
-        let mut eq = self.equality();
+        let mut eq = self.or();
         while self.match_next(vec![Equals]) {
             let r = self.expr();
             eq = Expr::Assign(Box::new(eq), Box::new(r));
@@ -371,10 +371,10 @@ impl Parser {
     }
 
     fn equality(&mut self) -> Expr {
-        let mut or = self.or();
+        let mut or = self.comparison();
         while self.match_next(vec![EqualsEquals, BangEquals]) {
             let op = self.lexer.prev().unwrap().get_type();
-            let right = self.or();
+            let right = self.comparison();
             or = Expr::Binary(Box::new(or), op, Box::new(right))
         }
         or
@@ -391,10 +391,10 @@ impl Parser {
     }
 
     fn and(&mut self) -> Expr {
-        let mut comparison = self.comparison();
+        let mut comparison = self.equality();
         while self.match_next(vec![And]) {
             let op = self.lexer.prev().unwrap().get_type();
-            let right = self.comparison();
+            let right = self.equality();
             comparison = Expr::Binary(Box::new(comparison), op, Box::new(right))
         }
         comparison

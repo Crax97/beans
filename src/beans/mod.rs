@@ -157,16 +157,30 @@ mod tests {
     }
 
     #[test]
+    fn boolean() {
+        let factorial_prog = "function boolean(n)
+                if n == 3.14 or n == 6 then
+                    return true;
+                end
+                return false;
+            end
+            boolean(3.14);";
+        match exec_prog(factorial_prog) {
+            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 1.0),
+            _ => panic!("Failure on factorial(5)"),
+        }
+    }
+    #[test]
     fn factorial() {
         let factorial_prog = "function factorial(n)
                 if n == 1 or n == 0 then
                     return 1;
                 end
-                return 0;
+                return n * factorial(n - 1);
             end
-            factorial(1);";
+            factorial(5);";
         match exec_prog(factorial_prog) {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 1.0),
+            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 120.0),
             _ => panic!("Failure on factorial(5)"),
         }
     }

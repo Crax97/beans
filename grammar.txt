@@ -26,10 +26,10 @@ paramlist -> expr ("," expr)*
 
 expr -> equality | assign | lambdaExpr
 lambdaExpr -> "lambda" "(" arglist ")" statement* "end"
-assign -> equality ( "=" assign)*
-equality -> or ( ( "==" | "!=" ) or)*
+assign -> or ( "=" assign)*
 or -> and ("or" and)*
-and -> comparison ("and" comparison)* 
+and -> equality ("and" equality)* 
+equality -> comparison ( ( "==" | "!=" ) comparison)*
 comparison -> shift ( ("<" | ">" | "<=" | ">=") shift)*
 shift -> bit_or ( ( "<<" | ">>" ) bit_or)*
 bit_or -> bit_and ("|" bit_and)*
