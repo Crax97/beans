@@ -23,13 +23,13 @@ pub enum Expr {
     Binary(Box<Expr>, TokenType, Box<Expr>),
     Id(String),
     Call(Box<Expr>, Vec<Expr>),
-    Get(Box<Expr>, Box<Expr>),
+    Get(Box<Expr>, String),
     Num(f64),
     Str(String),
     Bool(bool),
     Grouping(Box<Expr>),
     Assign(Box<Expr>, Box<Expr>),
-    LambdaDef(Vec<String>, Vec<Stmt>),
+    LambdaDef(Vec<String>, Rc<Vec<Stmt>>),
     Nil,
 }
 

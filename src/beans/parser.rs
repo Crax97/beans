@@ -318,7 +318,7 @@ impl Parser {
         let generator_it = Expr::Call(
             Box::new(Expr::Get(
                 Box::new(generator),
-                Box::new(Expr::Id(String::from("next"))),
+                var.clone(),
             )),
             vec![],
         );
@@ -370,7 +370,7 @@ impl Parser {
         self.expect(LeftParen);
         let args = self.args();
         let body = self.body();
-        Expr::LambdaDef(args, body)
+        Expr::LambdaDef(args, Rc::new(body))
     }
 
     fn equality(&mut self) -> Expr {
@@ -468,8 +468,8 @@ impl Parser {
     fn call(&mut self) -> Expr {
         let mut l = self.literal();
         while self.match_next(vec![Dot]) {
-            let r = self.literal();
-            l = Expr::Get(Box::new(l), Box::new(r));
+            let r = self.name();
+            l = Expr::Get(Box::new(l), r);
         }
         if self.match_next(vec![LeftParen]) {
             let params = self.params();

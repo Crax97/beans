@@ -1,12 +1,37 @@
 use super::node::Expr::*;
 use super::node::Stmt::*;
 use super::node::*;
+use super::tokens::Token;
 use super::tokens::TokenType::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::environments::*;
-use std::borrow::Borrow;
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+    use super::*;
+    #[test]
+    fn try_simple_expr() {
+        let expr = "3 * 2;";
+        let lexer = lexer::Lexer::new(String::from(expr));
+        let mut parser = parser::Parser::new(lexer);
+        let stmts = parser.parse();
+
+        let mut evaluator = Evaluator::new();
+        for stmt in stmts {
+            match evaluator.execute_statement(&stmt) {
+                StatementResult::Ok(sv) => {
+                    if let Some(v) = sv {
+                        println!("{}", v.stringfiy());
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
 
 pub enum StatementResult {
     Ok(Option<Value>),
@@ -62,7 +87,7 @@ impl Evaluator {
     ) -> StatementResult {
         for branch in branches {
             let val = self.evaluate(&branch.0);
-            if Evaluator::is_true(&val.get_value()) {
+            if Evaluator::is_true(&val.borrow().get_value()) {
                 return self.exec_block(&branch.1);
             }
         }
@@ -70,7 +95,7 @@ impl Evaluator {
     }
 
     fn exec_while(&mut self, cond: &Expr, block: &Vec<Stmt>) -> StatementResult {
-        while Evaluator::is_true(&self.evaluate(&cond).get_value()) {
+        while Evaluator::is_true(&self.evaluate(&cond).borrow().get_value()) {
             match self.exec_block(block) {
                 StatementResult::Ok(_) => {}
                 StatementResult::Return(v) => return StatementResult::Return(v),
@@ -96,7 +121,7 @@ impl Evaluator {
     fn exec_var(&mut self, id: &String, initializer: &Option<Expr>) -> StatementResult {
         let mut value = Value::Nil;
         if let Some(expr) = initializer {
-            value = self.evaluate(&expr).get_value();
+            value = self.evaluate(&expr).borrow().get_value();
         }
         let ret = value.clone();
         self.current
@@ -140,7 +165,7 @@ impl Evaluator {
         let mut variants: Vec<(String, f64)> = Vec::new();
         for value in values {
             let assoc_value = if let Some(expr) = &value.1 {
-                match self.evaluate(&expr).get_value() {
+                match self.evaluate(&expr).borrow().get_value() {
                     Value::Num(e) => e,
                     _ => panic!("Enum variants can only be associated to numbers!"),
                 }
@@ -161,7 +186,8 @@ impl Evaluator {
 
     fn exec_return(&mut self, e: &Expr) -> StatementResult {
         let v = self.evaluate(e);
-        StatementResult::Return(v.get_value())
+        let borrowed = v.borrow();
+        StatementResult::Return(borrowed.get_value())
     }
 
     fn negate(v: Value) -> Value {
@@ -175,8 +201,8 @@ impl Evaluator {
     fn arithmetic(&mut self, le: &Expr, op: super::tokens::TokenType, re: &Expr) -> Value {
         match op {
             Plus => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 if l.is_numeric() && r.is_numeric() {
                     Value::Num(l.as_numeric() + r.as_numeric())
                 } else {
@@ -187,18 +213,18 @@ impl Evaluator {
                 }
             }
             Minus => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 Value::Num(l.as_numeric() - r.as_numeric())
             }
             Star => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 Value::Num(l.as_numeric() * r.as_numeric())
             }
             Slash => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 let divisor = r.as_numeric();
                 Value::Num(if divisor != 0.0 {
                     l.as_numeric() / r.as_numeric()
@@ -207,78 +233,78 @@ impl Evaluator {
                 })
             }
             Less => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 Value::Bool(l.as_numeric() < r.as_numeric())
             }
             LessEquals => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 Value::Bool(l.as_numeric() <= r.as_numeric())
             }
             More => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 Value::Bool(l.as_numeric() > r.as_numeric())
             }
             MoreEquals => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 Value::Bool(l.as_numeric() >= r.as_numeric())
             }
             EqualsEquals => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 Value::Bool(l.as_numeric() == r.as_numeric())
             }
             BangEquals => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 Value::Bool(l.as_numeric() != r.as_numeric())
             }
 
             LessLess => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 Value::Num(((l.as_numeric() as u64) << (r.as_numeric() as u64)) as f64)
             }
             MoreMore => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 Value::Num(((l.as_numeric() as u64) >> (r.as_numeric() as u64)) as f64)
             }
             Ampersand => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 Value::Num(((l.as_numeric() as u64) & (r.as_numeric() as u64)) as f64)
             }
             Pipe => {
-                let l = self.evaluate(le).get_value();
-                let r = self.evaluate(re).get_value();
+                let l = self.evaluate(le).borrow().get_value();
+                let r = self.evaluate(re).borrow().get_value();
                 Value::Num(((l.as_numeric() as u64) | (r.as_numeric() as u64)) as f64)
             }
             And => {
-                let l = self.evaluate(le).get_value();
+                let l = self.evaluate(le).borrow().get_value();
                 if !Evaluator::is_true(&l) {
                     Value::Bool(false)
                 } else {
-                    self.evaluate(re).get_value()
+                    self.evaluate(re).borrow().get_value()
                 }
             }
             Or => {
-                let l = self.evaluate(le).get_value();
+                let l = self.evaluate(le).borrow().get_value();
                 if Evaluator::is_true(&l) {
                     Value::Bool(true)
                 } else {
-                    self.evaluate(re).get_value()
+                    self.evaluate(re).borrow().get_value()
                 }
             }
             _ => unreachable!(),
         }
     }
 
-    fn do_call(&mut self, fun: &Expr, args: &Vec<Expr>) -> Rc<Symbol> {
-        let callable_maybe = self.evaluate(fun).get_value();
+    fn do_call(&mut self, fun: &Expr, args: &Vec<Expr>) -> Rc<RefCell<Symbol>> {
+        let callable_maybe = self.evaluate(fun).borrow().get_value();
         let result = match callable_maybe {
             Value::Callable(call) => {
                 if call.arity() != args.len() {
@@ -287,7 +313,7 @@ impl Evaluator {
 
                 let mut args_evaluated: Vec<Value> = Vec::new();
                 for arg in args {
-                    let evaluated = self.evaluate(arg).get_value();
+                    let evaluated = self.evaluate(arg).borrow().get_value();
                     args_evaluated.push(evaluated);
                 }
 
@@ -295,18 +321,35 @@ impl Evaluator {
             }
             _ => panic!("Not callable!"),
         };
-        Rc::new(Symbol::new(result))
+        Rc::new(RefCell::new(Symbol::new(result)))
     }
 
-    fn get_symbol(&self, s: &String) -> Rc<Symbol> {
-        self.current.as_ref().borrow().get(s)
+    fn get_symbol(&self, s: &String) -> Rc<RefCell<Symbol>> {
+        self.current.as_ref().borrow_mut().get(s)
+    }
+
+    fn get(&mut self, l: &Expr, id: &String) -> Rc<RefCell<Symbol>> {
+        let base = self.evaluate(l);
+        let borrowed = base.borrow();
+        borrowed.get(id)
+    }
+    fn assign(&mut self, l: &Expr, r: &Expr) -> Rc<RefCell<Symbol>> {
+        let base = self.evaluate(l);
+        let value = self.evaluate(r);
+        base.borrow_mut().set_value(value.borrow().get_value());
+        value
+    }
+    fn lambda(&mut self, params: &Vec<String>, prog: Rc<Vec<Stmt>>) -> Rc<RefCell<Symbol>> {
+        Rc::new(RefCell::new(Symbol::new(Value::Callable(Rc::new(
+            Box::new(Closure::new(prog, self.current.clone(), params.clone())),
+        )))))
     }
 }
 
-impl Evaluate<StatementResult, Rc<Symbol>> for Evaluator {
+impl Evaluate<StatementResult, Rc<RefCell<Symbol>>> for Evaluator {
     fn execute_statement(&mut self, s: &Stmt) -> StatementResult {
         match s {
-            Stmt::ExprStmt(e) => StatementResult::Ok(Some(self.evaluate(&e).get_value())),
+            Stmt::ExprStmt(e) => StatementResult::Ok(Some(self.evaluate(&e).borrow().get_value())),
             Stmt::If(branches, else_block) => self.exec_if(branches, else_block),
             Stmt::While(cond, block) => self.exec_while(cond, block),
             Stmt::Block(stmts) => self.exec_block(stmts),
@@ -320,23 +363,26 @@ impl Evaluate<StatementResult, Rc<Symbol>> for Evaluator {
         }
     }
 
-    fn evaluate(&mut self, e: &Expr) -> Rc<Symbol> {
+    fn evaluate(&mut self, e: &Expr) -> Rc<RefCell<Symbol>> {
         match e {
-            Expr::Num(n) => Rc::new(Symbol::new(Value::Num(*n))),
-            Expr::Str(s) =>  Rc::new(Symbol::new(Value::Str(s.clone()))),
-            Expr::Bool(b) =>  Rc::new(Symbol::new(Value::Bool(*b))),
+            Expr::Num(n) => Rc::new(RefCell::new(Symbol::new(Value::Num(*n)))),
+            Expr::Str(s) => Rc::new(RefCell::new(Symbol::new(Value::Str(s.clone())))),
+            Expr::Bool(b) => Rc::new(RefCell::new(Symbol::new(Value::Bool(*b)))),
 
-            Unary(op, e) => Rc::new(Symbol::new(match op {
-                Plus => self.evaluate(e).get_value(),
-                Minus => Evaluator::negate(self.evaluate(e).get_value()),
-                Bang => Evaluator::negate(self.evaluate(e).get_value()),
+            Unary(op, e) => Rc::new(RefCell::new(Symbol::new(match op {
+                Plus => self.evaluate(e).borrow().get_value(),
+                Minus => Evaluator::negate(self.evaluate(e).borrow().get_value()),
+                Not => Evaluator::negate(self.evaluate(e).borrow().get_value()),
                 _ => unreachable!(),
-            })),
-            Binary(l, op, r) => Rc::new(Symbol::new(self.arithmetic(l, *op, r))),
+            }))),
+            Binary(l, op, r) => Rc::new(RefCell::new(Symbol::new(self.arithmetic(l, *op, r)))),
             Grouping(e) => self.evaluate(e),
             Id(name) => self.get_symbol(name),
             Call(exp, args) => self.do_call(exp, args),
-            _ => panic!("Asd"),
+            Get(l, r) => self.get(l, r),
+            Assign(l, r) => self.assign(l, r),
+            LambdaDef(params, stmts) => self.lambda(params, stmts.clone()),
+            Nil => Rc::new(RefCell::new(Symbol::new(Value::Nil))),
         }
     }
 }

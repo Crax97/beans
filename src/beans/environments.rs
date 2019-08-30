@@ -5,6 +5,7 @@ use super::node::Expr;
 use super::node::Stmt;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::rc::Rc;
 
 pub trait Call {
@@ -60,11 +61,23 @@ impl Value {
             _ => false,
         }
     }
+    pub fn stringfiy(&self) -> String {
+        match self {
+            Value::Num(n) => format!("Num: {}", *n),
+            Value::Str(s) => format!("Str: {}", s.clone()),
+            Value::Bool(b) => format!("Bool: {}", *b),
+            Value::Callable(call) => format!("Callable"),
+            Value::Enum(name, fields) => format!("Enum {}", name),
+            Value::Struct(base) => format!("Struct"),
+            Value::StructInstance(inst) => format!("StructInstance"),
+            Value::Nil => format!("Nil"),
+        }
+    }
 }
 
 pub struct Symbol {
     v: Rc<Value>,
-    childs: Rc<RefCell<HashMap<String, Rc<Symbol>>>>,
+    childs: Rc<RefCell<HashMap<String, Rc<RefCell<Symbol>>>>>,
 }
 impl Symbol {
     pub fn new(v: Value) -> Symbol {
@@ -83,14 +96,14 @@ impl Symbol {
         self.v = Rc::new(v);
     }
 
-    pub fn get(&self, id: &String) -> Rc<Symbol> {
-        let nil_def = Rc::new(Symbol::new(Value::Nil));
+    pub fn get(&self, id: &String) -> Rc<RefCell<Symbol>> {
+        let nil_def = Rc::new(RefCell::new(Symbol::new(Value::Nil)));
         self.childs.borrow().get(id).unwrap_or(&nil_def).clone()
     }
 
     pub fn set(&mut self, id: String, sym: Symbol) {
         let mut mut_childs = self.childs.borrow_mut();
-        mut_childs.insert(id, Rc::new(sym));
+        mut_childs.insert(id, Rc::new(RefCell::new(sym)));
     }
 }
 
@@ -174,7 +187,7 @@ impl StructInstance {
 }
 
 pub struct Env {
-    symbols: HashMap<String, Rc<Symbol>>,
+    symbols: HashMap<String, Rc<RefCell<Symbol>>>,
     enclosing: Option<Rc<RefCell<Env>>>,
 }
 
@@ -191,17 +204,18 @@ impl Env {
         e.enclosing = Some(enclosing);
         e
     }
-    pub fn get(&self, s: &String) -> Rc<Symbol> {
+    pub fn get(&self, s: &String) -> Rc<RefCell<Symbol>> {
         if self.symbols.contains_key(s) {
-            return self.symbols.get(s).unwrap().clone();
+            let k = self.symbols.get(s).unwrap().clone();
+            return k;
         }
         match &self.enclosing {
             Some(env) => env.as_ref().borrow().get(s),
-            None => Rc::new(Symbol::new(Value::Nil)),
+            None => Rc::new(RefCell::new(Symbol::new(Value::Nil))),
         }
     }
 
     pub fn set(&mut self, s: String, sym: Symbol) {
-        self.symbols.insert(s, Rc::new(sym));
+        self.symbols.insert(s, Rc::new(RefCell::new(sym)));
     }
 }
