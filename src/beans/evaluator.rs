@@ -187,6 +187,16 @@ mod tests {
             _ => panic!("Failure on factorial(5)"),
         }
     }
+
+    #[test]
+    fn assign() {
+        let prog = "var pi = 3.14;
+        pi;";
+        match exec_prog(prog) {
+            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 3.14),
+            _ => panic!("Failure on factorial(5)"),
+        }
+    }
 }
 
 pub enum StatementResult {
@@ -284,9 +294,7 @@ impl Evaluator {
             value = self.evaluate(&expr);
         }
         let ret = value.clone();
-        self.current
-            .borrow_mut()
-            .set(id.clone(), value.clone());
+        self.current.borrow_mut().set(id.clone(), value.clone());
         StatementResult::Ok(Some(ret))
     }
     fn exec_fundef(
@@ -301,18 +309,14 @@ impl Evaluator {
             params.to_vec(),
         ))));
         let ret = closure.clone();
-        self.current
-            .borrow_mut()
-            .set(id.clone(), closure);
+        self.current.borrow_mut().set(id.clone(), closure);
         StatementResult::Ok(Some(ret))
     }
 
     fn exec_structdef(&mut self, name: &String, members: &Vec<String>) -> StatementResult {
         let strukt = Value::Struct(Rc::new(BaseStruct::new(members.to_vec(), name.clone())));
         let ret = strukt.clone();
-        self.current
-            .borrow_mut()
-            .set(name.clone(), strukt);
+        self.current.borrow_mut().set(name.clone(), strukt);
         StatementResult::Ok(Some(ret))
     }
 
@@ -338,9 +342,7 @@ impl Evaluator {
         }
         let enumt = Value::Enum(name.clone(), variants);
         let ret = enumt.clone();
-        self.current
-            .borrow_mut()
-            .set(name.clone(), enumt);
+        self.current.borrow_mut().set(name.clone(), enumt);
         StatementResult::Ok(Some(ret))
     }
 
@@ -490,9 +492,9 @@ impl Evaluator {
         match base {
             Value::Collection(map) => match map.get(id) {
                 Some(val) => val.clone(),
-                None => Value::Nil
+                None => Value::Nil,
             },
-            _ => panic!("Can't get from values different from collections!")
+            _ => panic!("Can't get from values different from collections!"),
         }
     }
     fn assign(&mut self, l: &Expr, r: &Expr) -> Value {
@@ -501,22 +503,30 @@ impl Evaluator {
             Expr::Id(name) => {
                 let mut current_env = self.current.as_ref().borrow_mut();
                 current_env.set(name.clone(), value.clone());
-            }, 
+            }
             Get(expr, id) => {
                 let base = self.evaluate(expr);
                 match base {
-                    Value::Collection(mut map) => { map.insert(id.clone(), value.clone());},
-                    _ => { eprint!("Invalid assign target!"); }
+                    Value::Collection(mut map) => {
+                        map.insert(id.clone(), value.clone());
+                    }
+                    _ => {
+                        eprint!("Invalid assign target!");
+                    }
                 }
-            },
-            _ => { eprint!("Invalid assign target!"); }
+            }
+            _ => {
+                eprint!("Invalid assign target!");
+            }
         }
         value
     }
     fn lambda(&mut self, params: &Vec<String>, prog: Rc<Vec<Stmt>>) -> Value {
-        Value::Callable(Rc::new(
-            Box::new(Closure::new(prog, self.current.clone(), params.clone())),
-        ))
+        Value::Callable(Rc::new(Box::new(Closure::new(
+            prog,
+            self.current.clone(),
+            params.clone(),
+        ))))
     }
 
     fn get_value(&self, id: &String) -> Value {
@@ -545,7 +555,7 @@ impl Evaluate<StatementResult, Value> for Evaluator {
     fn evaluate(&mut self, e: &Expr) -> Value {
         match e {
             Expr::Num(n) => Value::Num(*n),
-            Expr::Str(s) =>Value::Str(s.clone()),
+            Expr::Str(s) => Value::Str(s.clone()),
             Expr::Bool(b) => Value::Bool(*b),
 
             Unary(op, e) => match op {
@@ -554,7 +564,7 @@ impl Evaluate<StatementResult, Value> for Evaluator {
                 Not => Evaluator::negate(self.evaluate(e)),
                 _ => unreachable!(),
             },
-            Binary(l, op, r) =>self.arithmetic(l, *op, r),
+            Binary(l, op, r) => self.arithmetic(l, *op, r),
             Grouping(e) => self.evaluate(e),
             Id(name) => self.get_value(name),
             Call(exp, args) => self.do_call(exp, args),

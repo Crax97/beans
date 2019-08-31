@@ -114,9 +114,7 @@ impl Value {
             Value::Struct(base) => format!("Struct"),
             Value::StructInstance(inst) => format!("StructInstance"),
             Value::Nil => format!("Nil"),
-            Value::Collection(map) => {
-                format!("Collection, {} elements", map.len())
-            }
+            Value::Collection(map) => format!("Collection, {} elements", map.len()),
         }
     }
 }
@@ -207,7 +205,7 @@ impl Env {
             Some(env) => {
                 let enclosing_env = env.as_ref().borrow();
                 enclosing_env.get(s).clone()
-            },
+            }
             None => Value::Nil,
         };
         v
