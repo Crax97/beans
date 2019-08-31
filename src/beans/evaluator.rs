@@ -26,9 +26,7 @@ mod tests {
         for stmt in stmts {
             match evaluator.execute_statement(&stmt) {
                 StatementResult::Ok(sv) => {
-                    if let Some(v) = sv {
-                        println!("{}", v.stringfiy());
-                    }
+                    println!("{}", sv.stringfiy());
                 }
                 _ => {}
             }
@@ -60,39 +58,39 @@ mod tests {
     #[test]
     fn try_logical() {
         match exec_single_str("2 == 2;") {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 1.0),
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
             _ => panic!("Wrong result in 2 == 2!"),
         }
         match exec_single_str("2 != 2;") {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() != 1.0),
+            StatementResult::Ok(v) => assert!(v.as_numeric() != 1.0),
             _ => panic!("Wrong result in 2 != 2!"),
         }
         match exec_single_str("2 < 3;") {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 1.0),
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
             _ => panic!("Wrong result in 2 < 3!"),
         }
         match exec_single_str("2 > 3;") {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() != 1.0),
+            StatementResult::Ok(v) => assert!(v.as_numeric() != 1.0),
             _ => panic!("Wrong result in 2 > 3!"),
         }
         match exec_single_str("(2 > 3) or (3 > 1);") {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 1.0),
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
             _ => panic!("Wrong result in 2 > 3!"),
         }
         match exec_single_str("(2 > 3) and (3 > 1);") {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() != 1.0),
+            StatementResult::Ok(v) => assert!(v.as_numeric() != 1.0),
             _ => panic!("Wrong result in 2 > 3!"),
         }
         match exec_single_str("(2 > 3) or (3 > 1);") {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 1.0),
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
             _ => panic!("Wrong result in 2 > 3!"),
         }
         match exec_single_str("((2 > 3) and (3 > 1)) or (2 + 3 - 5 * 6 < 0);") {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 1.0),
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
             _ => panic!("Wrong result in 2 > 3!"),
         }
         match exec_single_str("((2 > 3) and (3 > 1)) and (2 + 3 - 5 * 6 < 0);") {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() != 1.0),
+            StatementResult::Ok(v) => assert!(v.as_numeric() != 1.0),
             _ => panic!("Wrong result in 2 > 3!"),
         }
     }
@@ -128,7 +126,7 @@ mod tests {
             end
             return_1();",
         ) {
-            StatementResult::Ok(val) => assert!(val.unwrap().as_numeric() == 1.0),
+            StatementResult::Ok(val) => assert!(val.as_numeric() == 1.0),
             _ => panic!("Ok 1 failed"),
         }
 
@@ -140,7 +138,7 @@ mod tests {
             end
             return_from_if();",
         ) {
-            StatementResult::Ok(val) => assert!(val.unwrap().as_numeric() == 3.14),
+            StatementResult::Ok(val) => assert!(val.as_numeric() == 3.14),
             _ => panic!("Ok 2 failed"),
         }
 
@@ -154,7 +152,7 @@ mod tests {
             end
             recursive(10);",
         ) {
-            StatementResult::Ok(val) => assert!(val.unwrap().as_numeric() == 3.14),
+            StatementResult::Ok(val) => assert!(val.as_numeric() == 3.14),
             _ => panic!("Ok 3 failed"),
         }
     }
@@ -169,7 +167,7 @@ mod tests {
             end
             boolean(3.14);";
         match exec_prog(factorial_prog) {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 1.0),
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
             _ => panic!("Failure on factorial(5)"),
         }
     }
@@ -183,7 +181,7 @@ mod tests {
             end
             factorial(5);";
         match exec_prog(factorial_prog) {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 120.0),
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 120.0),
             _ => panic!("Failure on factorial(5)"),
         }
     }
@@ -193,14 +191,14 @@ mod tests {
         let prog = "var pi = 3.14;
         pi;";
         match exec_prog(prog) {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 3.14),
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 3.14),
             _ => panic!("Failure on factorial(5)"),
         }
     }
 }
 
 pub enum StatementResult {
-    Ok(Option<Value>),
+    Ok(Value),
     Return(Value),
     Break,
     Continue,
@@ -274,7 +272,7 @@ impl Evaluator {
             }
         }
 
-        StatementResult::Ok(None)
+        StatementResult::Ok(Value::Nil)
     }
     fn exec_block(&mut self, block: &Vec<Stmt>) -> StatementResult {
         for stmt in block.iter() {
@@ -286,7 +284,7 @@ impl Evaluator {
                 StatementResult::Continue => return result,
             }
         }
-        StatementResult::Ok(None)
+        StatementResult::Ok(Value::Nil)
     }
     fn exec_var(&mut self, id: &String, initializer: &Option<Expr>) -> StatementResult {
         let mut value = Value::Nil;
@@ -295,7 +293,7 @@ impl Evaluator {
         }
         let ret = value.clone();
         self.current.borrow_mut().set(id.clone(), value.clone());
-        StatementResult::Ok(Some(ret))
+        StatementResult::Ok(ret)
     }
     fn exec_fundef(
         &mut self,
@@ -310,14 +308,14 @@ impl Evaluator {
         ))));
         let ret = closure.clone();
         self.current.borrow_mut().set(id.clone(), closure);
-        StatementResult::Ok(Some(ret))
+        StatementResult::Ok(ret)
     }
 
     fn exec_structdef(&mut self, name: &String, members: &Vec<String>) -> StatementResult {
         let strukt = Value::Struct(Rc::new(BaseStruct::new(members.to_vec(), name.clone())));
         let ret = strukt.clone();
         self.current.borrow_mut().set(name.clone(), strukt);
-        StatementResult::Ok(Some(ret))
+        StatementResult::Ok(ret)
     }
 
     fn exec_enumdef(
@@ -343,7 +341,7 @@ impl Evaluator {
         let enumt = Value::Enum(name.clone(), variants);
         let ret = enumt.clone();
         self.current.borrow_mut().set(name.clone(), enumt);
-        StatementResult::Ok(Some(ret))
+        StatementResult::Ok(ret)
     }
 
     fn exec_return(&mut self, e: &Expr) -> StatementResult {
@@ -538,7 +536,7 @@ impl Evaluator {
 impl Evaluate<StatementResult, Value> for Evaluator {
     fn execute_statement(&mut self, s: &Stmt) -> StatementResult {
         match s {
-            Stmt::ExprStmt(e) => StatementResult::Ok(Some(self.evaluate(&e))),
+            Stmt::ExprStmt(e) => StatementResult::Ok(self.evaluate(&e)),
             Stmt::If(branches, else_block) => self.exec_if(branches, else_block),
             Stmt::While(cond, block) => self.exec_while(cond, block),
             Stmt::Block(stmts) => self.exec_block(stmts),

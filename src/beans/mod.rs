@@ -24,7 +24,7 @@ mod tests {
         let expr = "sin(0.0);";
         let mut evaluator = beans::make_evaluator(glob);
         match beans::exec_string(expr, &mut evaluator) {
-            StatementResult::Ok(v) => assert!(v.unwrap().as_numeric() == 0.0),
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 0.0),
             _ => panic!("Failed evaluating sin(0)"),
         }
     }
