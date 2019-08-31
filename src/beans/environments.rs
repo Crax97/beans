@@ -8,6 +8,47 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::rc::Rc;
 
+pub struct Env {
+    symbols: HashMap<String, Value>,
+    enclosing: Option<Rc<RefCell<Env>>>,
+}
+
+pub struct BaseStruct {
+    fields: Vec<String>,
+    name: String,
+}
+
+pub struct StructInstance {
+    parent: Rc<Box<Value>>,
+    fields: HashMap<String, Expr>,
+}
+
+pub struct Closure {
+    env: Rc<RefCell<Env>>,
+    params: Vec<String>,
+    fun: Rc<Vec<Stmt>>,
+}
+
+pub struct NativeFn {
+    fun: fn(Vec<Value>) -> Value,
+    arity: usize,
+}
+
+impl NativeFn {
+    pub fn new(fun: fn(Vec<Value>) -> Value, arity: usize) -> NativeFn {
+        NativeFn { fun, arity }
+    }
+}
+
+impl Call for NativeFn {
+    fn call(&self, _eval: &mut Evaluator, args: Vec<Value>) -> Value {
+        (self.fun)(args)
+    }
+    fn arity(&self) -> usize {
+        self.arity
+    }
+}
+
 pub trait Call {
     fn call(&self, eval: &mut Evaluator, args: Vec<Value>) -> Value;
     fn arity(&self) -> usize;
@@ -21,6 +62,7 @@ pub enum Value {
     Enum(String, Vec<(String, f64)>),
     Struct(Rc<BaseStruct>),
     StructInstance(Rc<RefCell<StructInstance>>),
+    Collection(HashMap<String, Value>),
     Nil,
 }
 
@@ -34,6 +76,7 @@ impl Clone for Value {
             Value::Enum(name, fields) => Value::Enum(name.clone(), fields.clone()),
             Value::Struct(base) => Value::Struct(base.clone()),
             Value::StructInstance(inst) => Value::StructInstance(inst.clone()),
+            Value::Collection(map) => Value::Collection(map.clone()),
             Value::Nil => Value::Nil,
         }
     }
@@ -71,47 +114,13 @@ impl Value {
             Value::Struct(base) => format!("Struct"),
             Value::StructInstance(inst) => format!("StructInstance"),
             Value::Nil => format!("Nil"),
+            Value::Collection(map) => {
+                format!("Collection, {} elements", map.len())
+            }
         }
     }
 }
 
-pub struct Symbol {
-    v: Rc<Value>,
-    childs: Rc<RefCell<HashMap<String, Rc<RefCell<Symbol>>>>>,
-}
-impl Symbol {
-    pub fn new(v: Value) -> Symbol {
-        let rc = Rc::new(v);
-        Symbol {
-            v: rc,
-            childs: Rc::new(RefCell::new(HashMap::new())),
-        }
-    }
-
-    pub fn get_value(&self) -> Value {
-        self.v.as_ref().clone()
-    }
-
-    pub fn set_value(&mut self, v: Value) {
-        self.v = Rc::new(v);
-    }
-
-    pub fn get(&self, id: &String) -> Rc<RefCell<Symbol>> {
-        let nil_def = Rc::new(RefCell::new(Symbol::new(Value::Nil)));
-        self.childs.borrow().get(id).unwrap_or(&nil_def).clone()
-    }
-
-    pub fn set(&mut self, id: String, sym: Symbol) {
-        let mut mut_childs = self.childs.borrow_mut();
-        mut_childs.insert(id, Rc::new(RefCell::new(sym)));
-    }
-}
-
-pub struct Closure {
-    env: Rc<RefCell<Env>>,
-    params: Vec<String>,
-    fun: Rc<Vec<Stmt>>,
-}
 impl Closure {
     pub fn new(fun: Rc<Vec<Stmt>>, env: Rc<RefCell<Env>>, params: Vec<String>) -> Closure {
         Closure { env, params, fun }
@@ -125,7 +134,7 @@ impl Call for Closure {
         for i in 0..self.arity() {
             let name = self.params.get(i).unwrap();
             let arg = args.get(i).unwrap();
-            call_env.set(name.clone(), Symbol::new(arg.clone()));
+            call_env.set(name.clone(), arg.clone());
         }
 
         let result = eval.evaluate_in_env(&self.fun, call_env);
@@ -138,11 +147,6 @@ impl Call for Closure {
     fn arity(&self) -> usize {
         self.params.len()
     }
-}
-
-pub struct BaseStruct {
-    fields: Vec<String>,
-    name: String,
 }
 
 impl BaseStruct {
@@ -163,11 +167,6 @@ impl Call for BaseStruct {
     }
 }
 
-pub struct StructInstance {
-    parent: Rc<Box<Value>>,
-    fields: HashMap<String, Expr>,
-}
-
 impl StructInstance {
     fn new(fields: HashMap<String, Expr>, parent: Rc<Box<Value>>) -> StructInstance {
         StructInstance { parent, fields }
@@ -186,11 +185,6 @@ impl StructInstance {
     }
 }
 
-pub struct Env {
-    symbols: HashMap<String, Rc<RefCell<Symbol>>>,
-    enclosing: Option<Rc<RefCell<Env>>>,
-}
-
 impl Env {
     pub fn new() -> Env {
         Env {
@@ -204,18 +198,33 @@ impl Env {
         e.enclosing = Some(enclosing);
         e
     }
-    pub fn get(&self, s: &String) -> Rc<RefCell<Symbol>> {
+    pub fn get(&self, s: &String) -> Value {
         if self.symbols.contains_key(s) {
-            let k = self.symbols.get(s).unwrap().clone();
-            return k;
+            let k = self.symbols.get(s).unwrap();
+            return k.clone();
         }
-        match &self.enclosing {
-            Some(env) => env.as_ref().borrow().get(s),
-            None => Rc::new(RefCell::new(Symbol::new(Value::Nil))),
-        }
+        let v = match &self.enclosing {
+            Some(env) => {
+                let enclosing_env = env.as_ref().borrow();
+                enclosing_env.get(s).clone()
+            },
+            None => Value::Nil,
+        };
+        v
     }
 
-    pub fn set(&mut self, s: String, sym: Symbol) {
-        self.symbols.insert(s, Rc::new(RefCell::new(sym)));
+    pub fn set(&mut self, s: String, v: Value) {
+        self.symbols.insert(s, v);
+    }
+
+    pub fn bind_fun(&mut self, name: &str, fun: fn(Vec<Value>) -> Value, arity: usize) -> &Self {
+        let fun = NativeFn::new(fun, arity);
+        self.set(String::from(name), Value::Callable(Rc::new(Box::new(fun))));
+        self
+    }
+
+    pub fn add_constant(&mut self, name: &str, val: Value) -> &Self {
+        self.set(String::from(name), val);
+        self
     }
 }
