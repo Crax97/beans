@@ -203,6 +203,7 @@ mod tests {
         dic.k;";
         match exec_prog(prog) {
             StatementResult::Ok(v) => assert!(v.as_numeric() == 6.28),
+            StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
             _ => panic!("Failure on dic.c"),
         }
     }
@@ -559,22 +560,26 @@ impl Evaluator {
     }
 
     fn get(&mut self, l: &Expr, e: &Expr) -> Result<Value, String> {
-        let index = get_value!(self.evaluate(e));
+        let index = e;
         let base = get_value!(self.evaluate(l));
         match base {
             Value::Collection(map) => {
                 let id = match index {
-                    Value::Str(s) => s,
-                    _ => return Err(format!("Collections are only indexed by strings")),
+                    Expr::Id(s) => s,
+                    _ => {
+                        return Err(format!(
+                            "Collections are only indexed by strings"
+                        ))
+                    }
                 };
-                Ok(match map.get(&id) {
+                Ok(match map.get(id) {
                     Some(val) => val.clone(),
                     None => Value::Nil,
                 })
             }
             Value::List(lis) => {
                 let index = match index {
-                    Value::Num(n) => n as usize,
+                    Expr::Num(n) => *n as usize,
                     _ => return Err(format!("Lists are only indexed by numbers")),
                 };
                 if index >= lis.len() {
