@@ -104,6 +104,22 @@ impl Value {
             _ => false,
         }
     }
+    pub fn is_string(&self) -> bool {
+        match self {
+            Value::Str(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn negate(&mut self) -> Result<Self, String> {
+        match self {
+            Value::Num(n) => Ok(Value::Num(-*n)),
+            Value::Bool(b) => Ok(Value::Bool(!*b)),
+            _ => Err(format!("Cannot negate value {}", self.stringfiy()))
+        }
+
+    }
+
     pub fn stringfiy(&self) -> String {
         match self {
             Value::Num(n) => format!("Num: {}", *n),

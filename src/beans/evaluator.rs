@@ -196,12 +196,49 @@ mod tests {
         }
     }
 }
+macro_rules! operation {
+    ($lr: expr, $op: tt, $rr: expr, $variant: ident) => {
+        match ($lr, $rr) {
+            (Ok(l), Ok(r)) => {
+                if l.is_numeric() && r.is_numeric() {
+                    Ok(Value::$variant(l.as_numeric() $op r.as_numeric()))
+                } else {
+                    Err(format!("Unsummable values! {}, {}", l.stringfiy(), r.stringfiy()))
+                }
+            },
+            (Err(lwhy), _) => Err(format!("In left side of operation: {}", lwhy)),
+            (_, Err(rwhy)) => Err(format!("In right side of operation: {}", rwhy)),
+            }
+        };
+}
+
+macro_rules! get_value {
+    ($er: expr) => {
+        match $er {
+            Ok(l)=> l,
+            Err(lwhy) => return Err(lwhy),
+            }
+        };
+}
+
+macro_rules! get_values_no_bs {
+($lr: expr, $rr: expr) => {
+        match ($lr, $rr) {
+            (Ok(l), Ok(r)) => {
+                (l, r)
+            },
+            (Err(lwhy), _) => return Err(format!("In left side of operation: {}", lwhy)),
+            (_, Err(rwhy)) => return Err(format!("In right side of operation: {}", rwhy)),
+            }
+        };
+}
 
 pub enum StatementResult {
     Ok(Value),
     Return(Value),
     Break,
     Continue,
+    Failure(String),
 }
 
 pub trait Evaluate<S, E> {
@@ -254,8 +291,13 @@ impl Evaluator {
         else_block: &Vec<Stmt>,
     ) -> StatementResult {
         for branch in branches {
-            let val = self.evaluate(&branch.0);
-            if Evaluator::is_true(&val) {
+            if {
+                let res = match self.evaluate(&branch.0) {
+                    Ok(v) => v,
+                    Err(why) => return StatementResult::Failure(why),
+                };
+                Evaluator::is_true(&res) 
+            } {
                 return self.exec_block(&branch.1);
             }
         }
@@ -263,13 +305,20 @@ impl Evaluator {
     }
 
     fn exec_while(&mut self, cond: &Expr, block: &Vec<Stmt>) -> StatementResult {
-        while Evaluator::is_true(&self.evaluate(&cond)) {
-            match self.exec_block(block) {
-                StatementResult::Ok(_) => {}
-                StatementResult::Return(v) => return StatementResult::Return(v),
-                StatementResult::Continue => continue,
-                StatementResult::Break => break,
-            }
+        while {
+            let res = match self.evaluate(&cond) {
+                Ok(v) => v,
+                Err(why) => return StatementResult::Failure(why),
+            };
+            Evaluator::is_true(&res) 
+        }{
+        match self.exec_block(block) {
+            StatementResult::Ok(_) => {}
+            StatementResult::Return(v) => return StatementResult::Return(v),
+            StatementResult::Continue => continue,
+            StatementResult::Break => break,
+            StatementResult::Failure(why) => return StatementResult::Failure(why),
+        }
         }
 
         StatementResult::Ok(Value::Nil)
@@ -282,6 +331,7 @@ impl Evaluator {
                 StatementResult::Return(v) => return StatementResult::Return(v),
                 StatementResult::Break => break,
                 StatementResult::Continue => return result,
+                StatementResult::Failure(why) => return StatementResult::Failure(why),
             }
         }
         StatementResult::Ok(Value::Nil)
@@ -289,7 +339,11 @@ impl Evaluator {
     fn exec_var(&mut self, id: &String, initializer: &Option<Expr>) -> StatementResult {
         let mut value = Value::Nil;
         if let Some(expr) = initializer {
-            value = self.evaluate(&expr);
+                let res = match self.evaluate(&expr) {
+                    Ok(v) => v,
+                    Err(why) => return StatementResult::Failure(why),
+                };
+            value = res;
         }
         let ret = value.clone();
         self.current.borrow_mut().set(id.clone(), value.clone());
@@ -327,7 +381,12 @@ impl Evaluator {
         let mut variants: Vec<(String, f64)> = Vec::new();
         for value in values {
             let assoc_value = if let Some(expr) = &value.1 {
-                match self.evaluate(&expr) {
+
+                let res = match self.evaluate(&expr) {
+                    Ok(v) => v,
+                    Err(why) => return StatementResult::Failure(why),
+                };
+                match res {
                     Value::Num(e) => e,
                     _ => panic!("Enum variants can only be associated to numbers!"),
                 }
@@ -345,8 +404,11 @@ impl Evaluator {
     }
 
     fn exec_return(&mut self, e: &Expr) -> StatementResult {
-        let v = self.evaluate(e);
-        StatementResult::Return(v)
+        let vr = self.evaluate(e);
+        match vr {
+            Ok(v) => StatementResult::Return(v),
+            Err(why) => StatementResult::Failure(why),
+        }
     }
 
     fn negate(v: Value) -> Value {
@@ -357,105 +419,84 @@ impl Evaluator {
         }
     }
 
-    fn arithmetic(&mut self, le: &Expr, op: super::tokens::TokenType, re: &Expr) -> Value {
+    fn arithmetic(&mut self, le: &Expr, op: super::tokens::TokenType, re: &Expr) -> Result<Value, String> {
         match op {
             Plus => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
+                let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
                 if l.is_numeric() && r.is_numeric() {
-                    Value::Num(l.as_numeric() + r.as_numeric())
+                    Ok(Value::Num(l.as_numeric() + r.as_numeric()))
+                } else  if l.is_string() || r.is_string() {
+                    Ok(Value::Str(format!("{}{}", l.stringfiy(), r.stringfiy())))
                 } else {
-                    return match (l, r) {
-                        (Value::Str(ls), Value::Str(rs)) => Value::Str(format!("{}{}", ls, rs)),
-                        (_, _) => panic!("Unsummable types!"),
-                    };
-                }
-            }
+                    Err(format!("Unsummable values! {}, {}", l.stringfiy(), r.stringfiy()))
+                }  
+            },
             Minus => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
-                Value::Num(l.as_numeric() - r.as_numeric())
+                operation!(self.evaluate(le), -, self.evaluate(re), Num)
+                // let l = self.evaluate(le);
+                // let r = self.evaluate(re);
+                // Value::Num(l.as_numeric() - r.as_numeric())
             }
             Star => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
-                Value::Num(l.as_numeric() * r.as_numeric())
+                operation!(self.evaluate(le), *, self.evaluate(re), Num)
             }
             Slash => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
+                let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
                 let divisor = r.as_numeric();
-                Value::Num(if divisor != 0.0 {
+                Ok(Value::Num(if divisor != 0.0 {
                     l.as_numeric() / r.as_numeric()
                 } else {
                     0.0
-                })
-            }
+                }))
+            },
             Less => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
-                Value::Bool(l.as_numeric() < r.as_numeric())
+                operation!(self.evaluate(le), <, self.evaluate(re), Bool)
             }
             LessEquals => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
-                Value::Bool(l.as_numeric() <= r.as_numeric())
-            }
+                operation!(self.evaluate(le), <=, self.evaluate(re), Bool)
+            },
             More => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
-                Value::Bool(l.as_numeric() > r.as_numeric())
-            }
+                operation!(self.evaluate(le), >, self.evaluate(re), Bool)
+            },
             MoreEquals => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
-                Value::Bool(l.as_numeric() >= r.as_numeric())
-            }
+                operation!(self.evaluate(le), >=, self.evaluate(re), Bool)
+            },
             EqualsEquals => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
-                let ln = l.as_numeric();
-                let rn = r.as_numeric();
-                Value::Bool(ln.approx_eq(rn, F64Margin::default()))
-            }
+                let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
+                Ok(Value::Bool(l.as_numeric().approx_eq(r.as_numeric(), F64Margin::default())))
+            },
             BangEquals => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
-                Value::Bool(l.as_numeric() != r.as_numeric())
+                operation!(self.evaluate(le), !=, self.evaluate(re), Bool)
             }
 
             LessLess => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
-                Value::Num(((l.as_numeric() as u64) << (r.as_numeric() as u64)) as f64)
+                let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
+                Ok(Value::Num(((l.as_numeric() as u64) << (r.as_numeric() as u64)) as f64))
             }
             MoreMore => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
-                Value::Num(((l.as_numeric() as u64) >> (r.as_numeric() as u64)) as f64)
+                let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
+                Ok(Value::Num(((l.as_numeric() as u64) >> (r.as_numeric() as u64)) as f64))
             }
             Ampersand => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
-                Value::Num(((l.as_numeric() as u64) & (r.as_numeric() as u64)) as f64)
+                let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
+                Ok(Value::Num(((l.as_numeric() as u64) & (r.as_numeric() as u64)) as f64))
             }
             Pipe => {
-                let l = self.evaluate(le);
-                let r = self.evaluate(re);
-                Value::Num(((l.as_numeric() as u64) | (r.as_numeric() as u64)) as f64)
+                let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
+                Ok(Value::Num(((l.as_numeric() as u64) | (r.as_numeric() as u64)) as f64))
             }
             And => {
-                let l = self.evaluate(le);
+                let l = get_value!(self.evaluate(le));
                 if !Evaluator::is_true(&l) {
-                    Value::Bool(false)
+                    Ok(Value::Bool(false))
                 } else {
                     self.evaluate(re)
                 }
             }
             Or => {
-                let l = self.evaluate(le);
+                let l = get_value!(self.evaluate(le));
                 if Evaluator::is_true(&l) {
-                    Value::Bool(true)
+                    Ok(Value::Bool(true))
                 } else {
                     self.evaluate(re)
                 }
@@ -464,60 +505,60 @@ impl Evaluator {
         }
     }
 
-    fn do_call(&mut self, fun: &Expr, args: &Vec<Expr>) -> Value {
-        let callable_maybe = self.evaluate(fun);
+    fn do_call(&mut self, fun: &Expr, args: &Vec<Expr>) -> Result<Value, String> {
+        let callable_maybe = get_value!(self.evaluate(fun));
 
         match callable_maybe {
             Value::Callable(call) => {
                 if call.arity() != args.len() {
-                    panic!("Arguments differ in size!");
+                    return Err(format!("Arguments differ in size! Expected {}, got {}", call.arity(), args.len()));
                 }
 
                 let mut args_evaluated: Vec<Value> = Vec::new();
                 for arg in args {
-                    let evaluated = self.evaluate(arg);
+                    let evaluated = get_value!(self.evaluate(arg));
                     args_evaluated.push(evaluated);
                 }
 
-                call.call(self, args_evaluated)
+                Ok(call.call(self, args_evaluated))
             }
-            _ => Value::Nil,
+            _ => Ok(Value::Nil),
         }
     }
 
-    fn get(&mut self, l: &Expr, id: &String) -> Value {
-        let base = self.evaluate(l);
+    fn get(&mut self, l: &Expr, id: &String) -> Result<Value, String> {
+        let base = get_value!(self.evaluate(l));
         match base {
-            Value::Collection(map) => match map.get(id) {
+            Value::Collection(map) => Ok(match map.get(id) {
                 Some(val) => val.clone(),
                 None => Value::Nil,
-            },
-            _ => panic!("Can't get from values different from collections!"),
+            }),
+            _ => Err(format!("Can't get {} from a value that is not a collection!", id)),
         }
     }
-    fn assign(&mut self, l: &Expr, r: &Expr) -> Value {
-        let value = self.evaluate(r);
+    fn assign(&mut self, l: &Expr, r: &Expr) -> Result<Value, String> {
+        let value = get_value!(self.evaluate(r));
         match l {
             Expr::Id(name) => {
                 let mut current_env = self.current.as_ref().borrow_mut();
                 current_env.set(name.clone(), value.clone());
             }
             Get(expr, id) => {
-                let base = self.evaluate(expr);
+                let base = get_value!(self.evaluate(expr));;
                 match base {
                     Value::Collection(mut map) => {
                         map.insert(id.clone(), value.clone());
                     }
                     _ => {
-                        eprint!("Invalid assign target!");
+                        return Err(format!("Invalid assign target!"));
                     }
                 }
             }
             _ => {
-                eprint!("Invalid assign target!");
+                return Err(format!("Invalid assign target!"));
             }
         }
-        value
+        Ok(value)
     }
     fn lambda(&mut self, params: &Vec<String>, prog: Rc<Vec<Stmt>>) -> Value {
         Value::Callable(Rc::new(Box::new(Closure::new(
@@ -533,10 +574,16 @@ impl Evaluator {
     }
 }
 
-impl Evaluate<StatementResult, Value> for Evaluator {
+impl Evaluate<StatementResult, Result<Value, String>> for Evaluator {
     fn execute_statement(&mut self, s: &Stmt) -> StatementResult {
         match s {
-            Stmt::ExprStmt(e) => StatementResult::Ok(self.evaluate(&e)),
+            Stmt::ExprStmt(e) => { 
+                let v = self.evaluate(&e);
+                return match v {
+                    Ok(vs) => StatementResult::Ok(vs),
+                    Err(why) => StatementResult::Failure(why)
+                };
+            },
             Stmt::If(branches, else_block) => self.exec_if(branches, else_block),
             Stmt::While(cond, block) => self.exec_while(cond, block),
             Stmt::Block(stmts) => self.exec_block(stmts),
@@ -550,26 +597,28 @@ impl Evaluate<StatementResult, Value> for Evaluator {
         }
     }
 
-    fn evaluate(&mut self, e: &Expr) -> Value {
+    fn evaluate(&mut self, e: &Expr) -> Result<Value, String> {
         match e {
-            Expr::Num(n) => Value::Num(*n),
-            Expr::Str(s) => Value::Str(s.clone()),
-            Expr::Bool(b) => Value::Bool(*b),
+            Expr::Num(n) => Ok( Value::Num(*n)),
+            Expr::Str(s) => Ok( Value::Str(s.clone())),
+            Expr::Bool(b) =>Ok(  Value::Bool(*b)),
 
             Unary(op, e) => match op {
-                Plus => self.evaluate(e),
-                Minus => Evaluator::negate(self.evaluate(e)),
-                Not => Evaluator::negate(self.evaluate(e)),
+                Plus => { self.evaluate(e)},
+                Minus | Not => { match self.evaluate(e) {
+                    Ok(mut v) => v.negate(),
+                    Err(why) => Err(why)
+                } }
                 _ => unreachable!(),
             },
             Binary(l, op, r) => self.arithmetic(l, *op, r),
             Grouping(e) => self.evaluate(e),
-            Id(name) => self.get_value(name),
+            Id(name) => Ok(self.get_value(name)),
             Call(exp, args) => self.do_call(exp, args),
             Get(l, r) => self.get(l, r),
             Assign(l, r) => self.assign(l, r),
-            LambdaDef(params, stmts) => self.lambda(params, stmts.clone()),
-            Nil => Value::Nil,
+            LambdaDef(params, stmts) => Ok(self.lambda(params, stmts.clone())),
+            Nil => Ok(Value::Nil),
         }
     }
 }
