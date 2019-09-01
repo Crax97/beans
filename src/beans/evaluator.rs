@@ -5,6 +5,7 @@ use super::tokens::Token;
 use super::tokens::TokenType::*;
 use float_cmp::*;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use super::environments::*;
@@ -195,6 +196,27 @@ mod tests {
             _ => panic!("Failure on factorial(5)"),
         }
     }
+
+    #[test]
+    fn dict() {
+        let prog = "var dic = {a: 3.14, b: 2, k: 6.28};
+        dic.k;";
+        match exec_prog(prog) {
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 6.28),
+            _ => panic!("Failure on dic.c"),
+        }
+    }
+
+    #[test]
+    fn list() {
+        let prog = "var lis = [1, 2, 3, 4, 42];
+        lis[4];";
+        match exec_prog(prog) {
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 42.0),
+            StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
+            _ => panic!("Failure on lis! Got {:?}", prog),
+        }
+    }
 }
 macro_rules! operation {
     ($lr: expr, $op: tt, $rr: expr, $variant: ident) => {
@@ -215,22 +237,20 @@ macro_rules! operation {
 macro_rules! get_value {
     ($er: expr) => {
         match $er {
-            Ok(l)=> l,
+            Ok(l) => l,
             Err(lwhy) => return Err(lwhy),
-            }
-        };
+        }
+    };
 }
 
 macro_rules! get_values_no_bs {
-($lr: expr, $rr: expr) => {
+    ($lr: expr, $rr: expr) => {
         match ($lr, $rr) {
-            (Ok(l), Ok(r)) => {
-                (l, r)
-            },
+            (Ok(l), Ok(r)) => (l, r),
             (Err(lwhy), _) => return Err(format!("In left side of operation: {}", lwhy)),
             (_, Err(rwhy)) => return Err(format!("In right side of operation: {}", rwhy)),
-            }
-        };
+        }
+    };
 }
 
 pub enum StatementResult {
@@ -282,6 +302,7 @@ impl Evaluator {
             Value::Enum(_, fields) => fields.len() != 0,
             Value::Nil => false,
             Value::Collection(map) => map.len() != 0,
+            Value::List(elts) => elts.len() != 0,
         }
     }
 
@@ -296,7 +317,7 @@ impl Evaluator {
                     Ok(v) => v,
                     Err(why) => return StatementResult::Failure(why),
                 };
-                Evaluator::is_true(&res) 
+                Evaluator::is_true(&res)
             } {
                 return self.exec_block(&branch.1);
             }
@@ -310,15 +331,15 @@ impl Evaluator {
                 Ok(v) => v,
                 Err(why) => return StatementResult::Failure(why),
             };
-            Evaluator::is_true(&res) 
-        }{
-        match self.exec_block(block) {
-            StatementResult::Ok(_) => {}
-            StatementResult::Return(v) => return StatementResult::Return(v),
-            StatementResult::Continue => continue,
-            StatementResult::Break => break,
-            StatementResult::Failure(why) => return StatementResult::Failure(why),
-        }
+            Evaluator::is_true(&res)
+        } {
+            match self.exec_block(block) {
+                StatementResult::Ok(_) => {}
+                StatementResult::Return(v) => return StatementResult::Return(v),
+                StatementResult::Continue => continue,
+                StatementResult::Break => break,
+                StatementResult::Failure(why) => return StatementResult::Failure(why),
+            }
         }
 
         StatementResult::Ok(Value::Nil)
@@ -339,10 +360,10 @@ impl Evaluator {
     fn exec_var(&mut self, id: &String, initializer: &Option<Expr>) -> StatementResult {
         let mut value = Value::Nil;
         if let Some(expr) = initializer {
-                let res = match self.evaluate(&expr) {
-                    Ok(v) => v,
-                    Err(why) => return StatementResult::Failure(why),
-                };
+            let res = match self.evaluate(&expr) {
+                Ok(v) => v,
+                Err(why) => return StatementResult::Failure(why),
+            };
             value = res;
         }
         let ret = value.clone();
@@ -381,7 +402,6 @@ impl Evaluator {
         let mut variants: Vec<(String, f64)> = Vec::new();
         for value in values {
             let assoc_value = if let Some(expr) = &value.1 {
-
                 let res = match self.evaluate(&expr) {
                     Ok(v) => v,
                     Err(why) => return StatementResult::Failure(why),
@@ -419,27 +439,34 @@ impl Evaluator {
         }
     }
 
-    fn arithmetic(&mut self, le: &Expr, op: super::tokens::TokenType, re: &Expr) -> Result<Value, String> {
+    fn arithmetic(
+        &mut self,
+        le: &Expr,
+        op: super::tokens::TokenType,
+        re: &Expr,
+    ) -> Result<Value, String> {
         match op {
             Plus => {
                 let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
                 if l.is_numeric() && r.is_numeric() {
                     Ok(Value::Num(l.as_numeric() + r.as_numeric()))
-                } else  if l.is_string() || r.is_string() {
+                } else if l.is_string() || r.is_string() {
                     Ok(Value::Str(format!("{}{}", l.stringfiy(), r.stringfiy())))
                 } else {
-                    Err(format!("Unsummable values! {}, {}", l.stringfiy(), r.stringfiy()))
-                }  
-            },
+                    Err(format!(
+                        "Unsummable values! {}, {}",
+                        l.stringfiy(),
+                        r.stringfiy()
+                    ))
+                }
+            }
             Minus => {
                 operation!(self.evaluate(le), -, self.evaluate(re), Num)
                 // let l = self.evaluate(le);
                 // let r = self.evaluate(re);
                 // Value::Num(l.as_numeric() - r.as_numeric())
             }
-            Star => {
-                operation!(self.evaluate(le), *, self.evaluate(re), Num)
-            }
+            Star => operation!(self.evaluate(le), *, self.evaluate(re), Num),
             Slash => {
                 let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
                 let divisor = r.as_numeric();
@@ -448,42 +475,43 @@ impl Evaluator {
                 } else {
                     0.0
                 }))
-            },
-            Less => {
-                operation!(self.evaluate(le), <, self.evaluate(re), Bool)
             }
-            LessEquals => {
-                operation!(self.evaluate(le), <=, self.evaluate(re), Bool)
-            },
-            More => {
-                operation!(self.evaluate(le), >, self.evaluate(re), Bool)
-            },
-            MoreEquals => {
-                operation!(self.evaluate(le), >=, self.evaluate(re), Bool)
-            },
+            Less => operation!(self.evaluate(le), <, self.evaluate(re), Bool),
+            LessEquals => operation!(self.evaluate(le), <=, self.evaluate(re), Bool),
+            More => operation!(self.evaluate(le), >, self.evaluate(re), Bool),
+            MoreEquals => operation!(self.evaluate(le), >=, self.evaluate(re), Bool),
             EqualsEquals => {
                 let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
-                Ok(Value::Bool(l.as_numeric().approx_eq(r.as_numeric(), F64Margin::default())))
-            },
-            BangEquals => {
-                operation!(self.evaluate(le), !=, self.evaluate(re), Bool)
+                Ok(Value::Bool(
+                    l.as_numeric()
+                        .approx_eq(r.as_numeric(), F64Margin::default()),
+                ))
             }
+            BangEquals => operation!(self.evaluate(le), !=, self.evaluate(re), Bool),
 
             LessLess => {
                 let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
-                Ok(Value::Num(((l.as_numeric() as u64) << (r.as_numeric() as u64)) as f64))
+                Ok(Value::Num(
+                    ((l.as_numeric() as u64) << (r.as_numeric() as u64)) as f64,
+                ))
             }
             MoreMore => {
                 let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
-                Ok(Value::Num(((l.as_numeric() as u64) >> (r.as_numeric() as u64)) as f64))
+                Ok(Value::Num(
+                    ((l.as_numeric() as u64) >> (r.as_numeric() as u64)) as f64,
+                ))
             }
             Ampersand => {
                 let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
-                Ok(Value::Num(((l.as_numeric() as u64) & (r.as_numeric() as u64)) as f64))
+                Ok(Value::Num(
+                    ((l.as_numeric() as u64) & (r.as_numeric() as u64)) as f64,
+                ))
             }
             Pipe => {
                 let (l, r) = get_values_no_bs!(self.evaluate(le), self.evaluate(re));
-                Ok(Value::Num(((l.as_numeric() as u64) | (r.as_numeric() as u64)) as f64))
+                Ok(Value::Num(
+                    ((l.as_numeric() as u64) | (r.as_numeric() as u64)) as f64,
+                ))
             }
             And => {
                 let l = get_value!(self.evaluate(le));
@@ -511,7 +539,11 @@ impl Evaluator {
         match callable_maybe {
             Value::Callable(call) => {
                 if call.arity() != args.len() {
-                    return Err(format!("Arguments differ in size! Expected {}, got {}", call.arity(), args.len()));
+                    return Err(format!(
+                        "Arguments differ in size! Expected {}, got {}",
+                        call.arity(),
+                        args.len()
+                    ));
                 }
 
                 let mut args_evaluated: Vec<Value> = Vec::new();
@@ -526,14 +558,36 @@ impl Evaluator {
         }
     }
 
-    fn get(&mut self, l: &Expr, id: &String) -> Result<Value, String> {
+    fn get(&mut self, l: &Expr, e: &Expr) -> Result<Value, String> {
+        let index = get_value!(self.evaluate(e));
         let base = get_value!(self.evaluate(l));
         match base {
-            Value::Collection(map) => Ok(match map.get(id) {
-                Some(val) => val.clone(),
-                None => Value::Nil,
-            }),
-            _ => Err(format!("Can't get {} from a value that is not a collection!", id)),
+            Value::Collection(map) => {
+                let id = match index {
+                    Value::Str(s) => s,
+                    _ => return Err(format!("Collections are only indexed by strings")),
+                };
+                Ok(match map.get(&id) {
+                    Some(val) => val.clone(),
+                    None => Value::Nil,
+                })
+            }
+            Value::List(lis) => {
+                let index = match index {
+                    Value::Num(n) => n as usize,
+                    _ => return Err(format!("Lists are only indexed by numbers")),
+                };
+                if index >= lis.len() {
+                    return Err(format!("Index out of bounds"));
+                }
+                Ok(match lis.get(index) {
+                    Some(val) => val.clone(),
+                    None => Value::Nil,
+                })
+            }
+            _ => {
+                return Err(format!("Invalid assign target!"));
+            }
         }
     }
     fn assign(&mut self, l: &Expr, r: &Expr) -> Result<Value, String> {
@@ -547,7 +601,23 @@ impl Evaluator {
                 let base = get_value!(self.evaluate(expr));;
                 match base {
                     Value::Collection(mut map) => {
+                        let id = match id.as_ref() {
+                            Expr::Id(s) => s,
+                            _ => return Err(format!("Collections are only indexed by strings")),
+                        };
+
                         map.insert(id.clone(), value.clone());
+                    }
+                    Value::List(mut lis) => {
+                        let index = match id.as_ref() {
+                            Expr::Num(n) => *n as usize,
+                            _ => return Err(format!("Lists are only indexed by numbers")),
+                        };
+                        if index >= lis.len() {
+                            return Err(format!("Index out of bounds"));
+                        }
+                        lis.push(value.clone());
+                        let _ = lis.swap_remove(index);
                     }
                     _ => {
                         return Err(format!("Invalid assign target!"));
@@ -572,18 +642,36 @@ impl Evaluator {
         let current_env = self.current.as_ref().borrow();
         current_env.get(id).clone()
     }
+
+    fn make_dict(&mut self, elts: &Vec<(String, Expr)>) -> Result<Value, String> {
+        let mut v: HashMap<String, Value> = HashMap::new();
+        for el in elts {
+            let evaluated = get_value!(self.evaluate(&el.1));
+            v.insert(el.0.clone(), evaluated);
+        }
+        Ok(Value::Collection(v))
+    }
+
+    fn make_list(&mut self, elts: &Vec<Expr>) -> Result<Value, String> {
+        let mut v: Vec<Value> = Vec::new();
+        for el in elts {
+            let evaluated = get_value!(self.evaluate(&el));
+            v.push(evaluated);
+        }
+        Ok(Value::List(v))
+    }
 }
 
 impl Evaluate<StatementResult, Result<Value, String>> for Evaluator {
     fn execute_statement(&mut self, s: &Stmt) -> StatementResult {
         match s {
-            Stmt::ExprStmt(e) => { 
+            Stmt::ExprStmt(e) => {
                 let v = self.evaluate(&e);
                 return match v {
                     Ok(vs) => StatementResult::Ok(vs),
-                    Err(why) => StatementResult::Failure(why)
+                    Err(why) => StatementResult::Failure(why),
                 };
-            },
+            }
             Stmt::If(branches, else_block) => self.exec_if(branches, else_block),
             Stmt::While(cond, block) => self.exec_while(cond, block),
             Stmt::Block(stmts) => self.exec_block(stmts),
@@ -599,16 +687,16 @@ impl Evaluate<StatementResult, Result<Value, String>> for Evaluator {
 
     fn evaluate(&mut self, e: &Expr) -> Result<Value, String> {
         match e {
-            Expr::Num(n) => Ok( Value::Num(*n)),
-            Expr::Str(s) => Ok( Value::Str(s.clone())),
-            Expr::Bool(b) =>Ok(  Value::Bool(*b)),
+            Expr::Num(n) => Ok(Value::Num(*n)),
+            Expr::Str(s) => Ok(Value::Str(s.clone())),
+            Expr::Bool(b) => Ok(Value::Bool(*b)),
 
             Unary(op, e) => match op {
-                Plus => { self.evaluate(e)},
-                Minus | Not => { match self.evaluate(e) {
+                Plus => self.evaluate(e),
+                Minus | Not => match self.evaluate(e) {
                     Ok(mut v) => v.negate(),
-                    Err(why) => Err(why)
-                } }
+                    Err(why) => Err(why),
+                },
                 _ => unreachable!(),
             },
             Binary(l, op, r) => self.arithmetic(l, *op, r),
@@ -618,7 +706,9 @@ impl Evaluate<StatementResult, Result<Value, String>> for Evaluator {
             Get(l, r) => self.get(l, r),
             Assign(l, r) => self.assign(l, r),
             LambdaDef(params, stmts) => Ok(self.lambda(params, stmts.clone())),
-            Nil => Ok(Value::Nil),
+            DictDef(elts) => self.make_dict(elts),
+            ListDef(elts) => self.make_list(elts),
+            Expr::Nil => Ok(Value::Nil),
         }
     }
 }

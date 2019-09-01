@@ -102,6 +102,8 @@ char_map = {
     ')': "RightParen",
     '{': "LeftBrace",
     '}': "RightBrace",
+    '[': "LeftSquare",
+    ']': "RightSquare",
 }
 
 

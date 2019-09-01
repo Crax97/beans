@@ -174,6 +174,9 @@ impl Lexer {
                 ',' => Some(Comma),
                 '.' => Some(Dot),
                 ';' => Some(Semicolon),
+                ':' => Some(Colon),
+                '[' => Some(LeftSquare),
+                ']' => Some(RightSquare),
                 _ => None,
             };
 

@@ -63,6 +63,7 @@ pub enum Value {
     Struct(Rc<BaseStruct>),
     StructInstance(Rc<RefCell<StructInstance>>),
     Collection(HashMap<String, Value>),
+    List(Vec<Value>),
     Nil,
 }
 
@@ -77,6 +78,7 @@ impl Clone for Value {
             Value::Struct(base) => Value::Struct(base.clone()),
             Value::StructInstance(inst) => Value::StructInstance(inst.clone()),
             Value::Collection(map) => Value::Collection(map.clone()),
+            Value::List(lis) => Value::List(lis.clone()),
             Value::Nil => Value::Nil,
         }
     }
@@ -115,9 +117,8 @@ impl Value {
         match self {
             Value::Num(n) => Ok(Value::Num(-*n)),
             Value::Bool(b) => Ok(Value::Bool(!*b)),
-            _ => Err(format!("Cannot negate value {}", self.stringfiy()))
+            _ => Err(format!("Cannot negate value {}", self.stringfiy())),
         }
-
     }
 
     pub fn stringfiy(&self) -> String {
@@ -131,6 +132,7 @@ impl Value {
             Value::StructInstance(inst) => format!("StructInstance"),
             Value::Nil => format!("Nil"),
             Value::Collection(map) => format!("Collection, {} elements", map.len()),
+            Value::List(lis) => format!("List, {} elements", lis.len()),
         }
     }
 }

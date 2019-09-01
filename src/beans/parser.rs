@@ -316,7 +316,7 @@ impl Parser {
 
         // generator().next()
         let generator_it = Expr::Call(
-            Box::new(Expr::Get(Box::new(generator), var.clone())),
+            Box::new(Expr::Get(Box::new(generator), Box::new(Expr::Id(var.clone())))),
             vec![],
         );
 
@@ -463,10 +463,10 @@ impl Parser {
     }
 
     fn call(&mut self) -> Expr {
-        let mut l = self.literal();
+        let mut l = self.index();
         while self.match_next(vec![Dot]) {
             let r = self.name();
-            l = Expr::Get(Box::new(l), r);
+            l = Expr::Get(Box::new(l), Box::new(Expr::Id(r)));
         }
         if self.match_next(vec![LeftParen]) {
             let params = self.params();
@@ -474,6 +474,22 @@ impl Parser {
         }
         l
     }
+
+    fn index(&mut self) -> Expr {
+        let mut e = self.literal();
+        while self.match_next(vec![LeftSquare]) {
+            let ind = self.lexer.next().unwrap();
+            match ind.get_type() {
+                Identifier | Num => {
+                    e = Expr::Get(Box::new(e), Box::new(Expr::new_from_tok(ind)))
+                },
+                _ => panic!("Indexes can only be identifiers or numbers!")
+            }
+            self.expect(RightSquare);
+        }
+        e
+    }
+
     fn literal(&mut self) -> Expr {
         if self.match_next(vec![Num, Str, Identifier, True, False]) {
             return Expr::new_from_tok(self.lexer.prev().unwrap());
@@ -483,6 +499,16 @@ impl Parser {
             self.expect(RightParen);
             return Expr::Grouping(Box::new(e));
         }
+        if self.match_next(vec![Nil]) {
+            return Expr::Nil;
+        }
+        if self.match_next(vec![LeftBrace]) {
+            return self.dictionary();
+        }
+        if self.match_next(vec![LeftSquare]) {
+            return self.list();
+        }
+
         if let Some(token) = self.lexer.peek() {
             let tok_type = token.get_type();
             self.syntax_error(
@@ -497,6 +523,41 @@ impl Parser {
             format!("Premature EOF after {:?}!", previous_type),
         );
         unreachable!()
+    }
+
+    fn dictionary(&mut self) -> Expr {
+        let mut v = vec![];
+        if !self.match_next(vec![RightBrace]) {
+            while {
+                let id = self.lexer.next().unwrap();
+                if id.get_type() != Identifier {
+                    panic!("Dictionary keys can only be identifiers!");
+                }
+                let id = id.as_Id();
+                self.expect(Colon);
+
+                let expr = self.expr();
+
+                v.push((id, expr));
+                self.match_next(vec![Comma])
+            } {}
+            self.expect(RightBrace);
+        }
+        Expr::DictDef(v)
+    }
+
+    fn list(&mut self) -> Expr {
+        let mut v = vec![];
+        if !self.match_next(vec![RightSquare]) {
+            while {
+                let expr = self.expr();
+
+                v.push(expr);
+                self.match_next(vec![Comma])
+            } {}
+            self.expect(RightSquare);
+        }
+        Expr::ListDef(v)
     }
 
     fn name(&mut self) -> String {

@@ -19,10 +19,11 @@ varDecl -> "var" ID ("=" expr)? ";"
 funDecl -> "function" ID "(" arglist? ")" statement* "end"
 structDecl -> "struct" ID "{" arglist? "}"
 enumDecl -> "enum" ID "{" enumlist? "}"
-
 arglist -> ID ("," ID)*
 enumlist -> ID ( = NUM)? ("," ID (= NUM)?*
 paramlist -> expr ("," expr)*
+dictelements -> ID ":" expr ( "," ID ":" expr)*
+listelements -> expr ("," expr)*
 
 expr -> equality | assign | lambdaExpr
 lambdaExpr -> "lambda" "(" arglist ")" statement* "end"
@@ -37,8 +38,9 @@ bit_and -> sum ( "&" sum)*
 sum ( ("+" | "-") product)*
 product ->  unary ( ( "*" | "/" ) unary)*
 unary -> ("+" | "-" | "not")? call
-call -> literal ("." ID)* ( "(" paramlist? ")" )?
-literal -> NUM | ID | STRING | "true" | "false" | "(" expr ")"
+call -> index ("." ID)* ( "(" paramlist? ")" )?
+index -> literal ("[" (ID | NUM) "]")*
+literal -> NUM | ID | STRING | "true" | "false" | "(" expr ")" | "nil" | "{" dictelements "}" | "[" listelements "]"
 
 ifStmt -> "if" expr "then" statement* ("elif" expr "then" statement* )* ("else" statement*)? "end"
 whileStmt -> "while" expr "do" stmt* "end"
