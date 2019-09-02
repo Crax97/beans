@@ -1,7 +1,5 @@
 use super::node::Expr::*;
-use super::node::Stmt::*;
 use super::node::*;
-use super::tokens::Token;
 use super::tokens::TokenType::*;
 use float_cmp::*;
 use std::cell::RefCell;
@@ -13,7 +11,6 @@ use super::environments::*;
 #[cfg(test)]
 mod tests {
     use super::super::evaluator::Evaluate;
-    use super::super::evaluator::Evaluator;
     use super::super::evaluator::StatementResult;
     use super::super::*;
     #[test]
@@ -218,6 +215,28 @@ mod tests {
             _ => panic!("Failure on lis! Got {:?}", prog),
         }
     }
+    #[test]
+    fn strukt() {
+        let prog = "struct Point {x, y}
+        var p = Point(10, 23);
+        p.x;";
+        match exec_prog(prog) {
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 10.0),
+            StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
+            _ => panic!("Failure on structs! Got {:?}", prog),
+        }
+    }
+    #[test]
+    fn enums() {
+        let prog = "enum Colors {Red, Blue = 20}
+        var c = Colors.Blue;
+        c;";
+        match exec_prog(prog) {
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 20.0),
+            StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
+            _ => panic!("Failure on enums! Got {:?}", prog),
+        }
+    }
 }
 macro_rules! operation {
     ($lr: expr, $op: tt, $rr: expr, $variant: ident) => {
@@ -298,7 +317,6 @@ impl Evaluator {
             Value::Str(s) => s.len() != 0,
             Value::Bool(b) => *b == true,
             Value::Callable(c) => c.arity() != 0,
-            Value::Struct(c) => c.arity() != 0,
             Value::StructInstance(_) => true,
             Value::Enum(_, fields) => fields.len() != 0,
             Value::Nil => false,
@@ -388,10 +406,14 @@ impl Evaluator {
     }
 
     fn exec_structdef(&mut self, name: &String, members: &Vec<String>) -> StatementResult {
-        let strukt = Value::Struct(Rc::new(BaseStruct::new(members.to_vec(), name.clone())));
-        let ret = strukt.clone();
-        self.current.borrow_mut().set(name.clone(), strukt);
-        StatementResult::Ok(ret)
+        let base_strukt = BaseStruct::new(members.to_vec(), name.clone());
+        let factory = StructFactory::new(Rc::new(base_strukt));
+
+        let strukt = Value::Callable(Rc::new(Box::new(factory)));
+
+        let mut current_env = self.current.as_ref().borrow_mut();
+        current_env.set(name.clone(), strukt.clone());
+        StatementResult::Ok(strukt)
     }
 
     fn exec_enumdef(
@@ -400,7 +422,7 @@ impl Evaluator {
         values: &Vec<(String, Option<Expr>)>,
     ) -> StatementResult {
         let mut i = 0.0;
-        let mut variants: Vec<(String, f64)> = Vec::new();
+        let mut variants: HashMap<String, f64> = HashMap::new();
         for value in values {
             let assoc_value = if let Some(expr) = &value.1 {
                 let res = match self.evaluate(&expr) {
@@ -409,14 +431,18 @@ impl Evaluator {
                 };
                 match res {
                     Value::Num(e) => e,
-                    _ => panic!("Enum variants can only be associated to numbers!"),
+                    _ => {
+                        return StatementResult::Failure(format!(
+                            "Enum variants can only be associated to numbers!"
+                        ))
+                    }
                 }
             } else {
                 let ii = i;
                 i += 1.0;
                 ii
             };
-            variants.push((value.0.clone(), assoc_value));
+            variants.insert(value.0.clone(), assoc_value);
         }
         let enumt = Value::Enum(name.clone(), variants);
         let ret = enumt.clone();
@@ -429,14 +455,6 @@ impl Evaluator {
         match vr {
             Ok(v) => StatementResult::Return(v),
             Err(why) => StatementResult::Failure(why),
-        }
-    }
-
-    fn negate(v: Value) -> Value {
-        match v {
-            Value::Num(n) => Value::Num(-n),
-            Value::Bool(b) => Value::Bool(!b),
-            _ => panic!("Value can't be negated!"),
         }
     }
 
@@ -566,11 +584,7 @@ impl Evaluator {
             Value::Collection(map) => {
                 let id = match index {
                     Expr::Id(s) => s,
-                    _ => {
-                        return Err(format!(
-                            "Collections are only indexed by strings"
-                        ))
-                    }
+                    _ => return Err(format!("Collections are only indexed by strings")),
                 };
                 Ok(match map.get(id) {
                     Some(val) => val.clone(),
@@ -590,8 +604,29 @@ impl Evaluator {
                     None => Value::Nil,
                 })
             }
+            Value::StructInstance(inst) => {
+                let id = match index {
+                    Expr::Id(s) => s,
+                    _ => return Err(format!("Structs are only indexed by strings")),
+                };
+                return Ok(match inst.get(id) {
+                    Some(value) => value.clone(),
+                    None => Value::Nil,
+                });
+            }
+            Value::Enum(_, fields) => {
+                let id = match index {
+                    Expr::Id(s) => s,
+                    _ => return Err(format!("Enums are only indexed by strings")),
+                };
+
+                return Ok(match fields.get(id) {
+                    Some(n) => Value::Num(*n),
+                    None => Value::Nil,
+                });
+            }
             _ => {
-                return Err(format!("Invalid assign target!"));
+                return Err(format!("Invalid get target! {}", base.stringfiy()));
             }
         }
     }
@@ -623,6 +658,15 @@ impl Evaluator {
                         }
                         lis.push(value.clone());
                         let _ = lis.swap_remove(index);
+                    }
+                    Value::StructInstance(mut inst) => {
+                        let id = match id.as_ref() {
+                            Expr::Id(s) => s,
+                            _ => return Err(format!("Structs are only indexed by strings")),
+                        };
+                        if let Err(_) = inst.set(id, value.clone()) {
+                            return Err(format!("{} is not a member of this struct", id));
+                        }
                     }
                     _ => {
                         return Err(format!("Invalid assign target!"));

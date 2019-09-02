@@ -1,16 +1,30 @@
-use super::evaluator::Evaluate;
 use super::evaluator::Evaluator;
 use super::evaluator::StatementResult;
 use super::node::Expr;
 use super::node::Stmt;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt::Display;
 use std::rc::Rc;
+
+pub enum Value {
+    Num(f64),
+    Str(String),
+    Bool(bool),
+    Callable(Rc<Box<dyn Call>>),
+    Enum(String, HashMap<String, f64>),
+    StructInstance(StructInstance),
+    Collection(HashMap<String, Value>),
+    List(Vec<Value>),
+    Nil,
+}
 
 pub struct Env {
     symbols: HashMap<String, Value>,
     enclosing: Option<Rc<RefCell<Env>>>,
+}
+
+pub struct StructFactory {
+    base: Rc<BaseStruct>,
 }
 
 pub struct BaseStruct {
@@ -19,8 +33,8 @@ pub struct BaseStruct {
 }
 
 pub struct StructInstance {
-    parent: Rc<Box<Value>>,
-    fields: HashMap<String, Expr>,
+    parent: Rc<BaseStruct>,
+    fields: HashMap<String, Value>,
 }
 
 pub struct Closure {
@@ -47,24 +61,15 @@ impl Call for NativeFn {
     fn arity(&self) -> usize {
         self.arity
     }
+    fn to_string(&self) -> String {
+        format!("native function")
+    }
 }
 
 pub trait Call {
     fn call(&self, eval: &mut Evaluator, args: Vec<Value>) -> Value;
     fn arity(&self) -> usize;
-}
-
-pub enum Value {
-    Num(f64),
-    Str(String),
-    Bool(bool),
-    Callable(Rc<Box<dyn Call>>),
-    Enum(String, Vec<(String, f64)>),
-    Struct(Rc<BaseStruct>),
-    StructInstance(Rc<RefCell<StructInstance>>),
-    Collection(HashMap<String, Value>),
-    List(Vec<Value>),
-    Nil,
+    fn to_string(&self) -> String;
 }
 
 impl Clone for Value {
@@ -75,7 +80,6 @@ impl Clone for Value {
             Value::Bool(b) => Value::Bool(*b),
             Value::Callable(call) => Value::Callable(call.clone()),
             Value::Enum(name, fields) => Value::Enum(name.clone(), fields.clone()),
-            Value::Struct(base) => Value::Struct(base.clone()),
             Value::StructInstance(inst) => Value::StructInstance(inst.clone()),
             Value::Collection(map) => Value::Collection(map.clone()),
             Value::List(lis) => Value::List(lis.clone()),
@@ -101,8 +105,8 @@ impl Value {
 
     pub fn is_numeric(&self) -> bool {
         match self {
-            Value::Num(n) => true,
-            Value::Bool(b) => true,
+            Value::Num(_) => true,
+            Value::Bool(_) => true,
             _ => false,
         }
     }
@@ -126,10 +130,23 @@ impl Value {
             Value::Num(n) => format!("Num: {}", *n),
             Value::Str(s) => format!("Str: {}", s.clone()),
             Value::Bool(b) => format!("Bool: {}", *b),
-            Value::Callable(call) => format!("Callable"),
-            Value::Enum(name, fields) => format!("Enum {}", name),
-            Value::Struct(base) => format!("Struct"),
-            Value::StructInstance(inst) => format!("StructInstance"),
+            Value::Callable(call) => format!("Callable {}", call.to_string()),
+            Value::Enum(name, fields) => {
+                let mut fields_str = String::from("{\n");
+                for field in fields {
+                    fields_str =
+                        format!("{}{}", fields_str, format!("\t{}: {},\n", field.0, field.1));
+                }
+                fields_str = format!("{}}}\n", fields_str);
+                format!("Enum {} {}", name, fields_str)
+            },
+            Value::StructInstance(inst) => {
+                let mut fields = format!("{{\n");
+                for field in inst.parent.get_fields() {
+                    fields = format!("\t{}{}", fields, field);
+                }
+                format!("{} Instance {}}}", inst.parent.get_name(), fields)
+            }
             Value::Nil => format!("Nil"),
             Value::Collection(map) => format!("Collection, {} elements", map.len()),
             Value::List(lis) => format!("List, {} elements", lis.len()),
@@ -163,41 +180,94 @@ impl Call for Closure {
     fn arity(&self) -> usize {
         self.params.len()
     }
+    fn to_string(&self) -> String {
+        format!("<function>")
+    }
+}
+
+impl StructFactory {
+    pub fn new(base: Rc<BaseStruct>) -> StructFactory {
+        StructFactory { base }
+    }
+
+    pub fn get_name(&self) -> &String {
+        self.base.get_name()
+    }
+
+    pub fn get_fields(&self) -> &Vec<String> {
+        self.base.get_fields()
+    }
+}
+
+impl Call for StructFactory {
+    fn call(&self, _eval: &mut Evaluator, args: Vec<Value>) -> Value {
+        let mut map: HashMap<String, Value> = HashMap::new();
+
+        for i in 0..self.base.get_fields().len() {
+            let name = self.base.get_fields().get(i).unwrap().clone();
+            let arg = args.get(i).unwrap().clone();
+            map.insert(name, arg);
+        }
+
+        Value::StructInstance(StructInstance::new(map, self.base.clone()))
+    }
+    fn arity(&self) -> usize {
+        self.base.get_fields().len()
+    }
+
+    fn to_string(&self) -> String{
+        let mut fields = format!("{{\n");
+        for field in self.get_fields() {
+            fields = format!("\t{}{}", fields, field);
+        }
+        format!("Struct factory: {} {}}}", self.get_name(), fields)
+    }
+}
+
+impl Clone for StructFactory {
+    fn clone(&self) -> Self {
+        StructFactory {
+            base: self.base.clone(),
+        }
+    }
 }
 
 impl BaseStruct {
     pub fn new(fields: Vec<String>, name: String) -> BaseStruct {
         BaseStruct { fields, name }
     }
-}
-impl Call for BaseStruct {
-    fn call(&self, eval: &mut Evaluator, args: Vec<Value>) -> Value {
-        // evaluate expressions
-        Value::StructInstance(Rc::new(RefCell::new(StructInstance::new(
-            HashMap::new(),
-            Rc::new(Box::new(Value::Nil)),
-        ))))
+
+    pub fn get_fields(&self) -> &Vec<String> {
+        &self.fields
     }
-    fn arity(&self) -> usize {
-        self.fields.len()
+
+    pub fn get_name(&self) -> &String {
+        &self.name
     }
 }
 
 impl StructInstance {
-    fn new(fields: HashMap<String, Expr>, parent: Rc<Box<Value>>) -> StructInstance {
+    pub fn new(fields: HashMap<String, Value>, parent: Rc<BaseStruct>) -> StructInstance {
         StructInstance { parent, fields }
     }
 
-    fn get(&self, id: &String) -> Option<&Expr> {
+    pub fn get(&self, id: &String) -> Option<&Value> {
         self.fields.get(id)
     }
 
-    fn set(&self, id: &String, e: Expr) {
+    pub fn set(&mut self, id: &String, v: Value) -> Result<(), ()> {
         if self.fields.contains_key(id) {
-            //insert e into self
+            self.fields.insert(id.clone(), v);
+            Ok(())
         } else {
-            panic!()
+            Err(())
         }
+    }
+}
+
+impl Clone for StructInstance {
+    fn clone(&self) -> Self {
+        StructInstance::new(self.fields.clone(), self.parent.clone())
     }
 }
 

@@ -29,6 +29,7 @@
             "cargo": {
                 "args": [
                     "test",
+                    "strukt",
                     "--no-run",
                     "--bin=beans_lang",
                     "--package=beans_lang"
