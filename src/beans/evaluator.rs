@@ -325,6 +325,12 @@ impl Evaluator {
         }
     }
 
+    fn exec_import(&mut self, module: &String) -> StatementResult {
+        /// TODO: Add module importing
+        println!("Importing {}", module);
+        StatementResult::Ok(Value::Nil)
+    }
+
     fn exec_if(
         &mut self,
         branches: &Vec<(Expr, Vec<Stmt>)>,
@@ -729,6 +735,7 @@ impl Evaluate<StatementResult, Result<Value, String>> for Evaluator {
             Stmt::StructDef(name, members) => self.exec_structdef(name, members),
             Stmt::EnumDef(name, values) => self.exec_enumdef(name, values),
             Stmt::Return(expr) => self.exec_return(expr),
+            Stmt::Import(module) => self.exec_import(module),
             Stmt::Break => StatementResult::Break,
             Stmt::Continue => StatementResult::Continue,
         }

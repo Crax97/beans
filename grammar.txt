@@ -2,6 +2,7 @@ program -> statement* EOF
 
 statement -> decl |
 expr ";" |
+importStmt ";" |
 ifStmt |
 whileStmt |
 forStmt |
@@ -13,7 +14,8 @@ forStmt |
 decl -> varDecl|
     funDecl |
     structDecl |
-    enumDecl
+    enumDecl |
+    decl
 
 varDecl -> "var" ID ("=" expr)? ";"
 funDecl -> "function" ID "(" arglist? ")" statement* "end"
@@ -45,3 +47,4 @@ literal -> NUM | ID | STRING | "true" | "false" | "(" expr ")" | "nil" | "{" dic
 ifStmt -> "if" expr "then" statement* ("elif" expr "then" statement* )* ("else" statement*)? "end"
 whileStmt -> "while" expr "do" stmt* "end"
 forStmt -> "for" ID "in" expr "do" statement* "end"
+importStmt -> "import" ID

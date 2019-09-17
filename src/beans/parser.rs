@@ -181,6 +181,9 @@ impl Parser {
         if self.match_next(vec![Enum]) {
             return self.parse_enum();
         }
+        if self.match_next(vec![Import]) {
+            return self.parse_import();
+        }
 
         if self.match_next(vec![If]) {
             return self.parse_if();
@@ -288,6 +291,13 @@ impl Parser {
         Stmt::If(branches, else_block)
     }
 
+    fn parse_import(&mut self) -> Stmt {
+        let name = self.name();
+        self.expect(Semicolon);
+
+        Stmt::Import(name)
+    }
+
     fn if_cond_and_exprs(&mut self) -> (Expr, Vec<Stmt>) {
         let cond = self.expr();
         self.expect(Then);
@@ -316,7 +326,10 @@ impl Parser {
 
         // generator().next()
         let generator_it = Expr::Call(
-            Box::new(Expr::Get(Box::new(generator), Box::new(Expr::Id(var.clone())))),
+            Box::new(Expr::Get(
+                Box::new(generator),
+                Box::new(Expr::Id(var.clone())),
+            )),
             vec![],
         );
 
@@ -480,10 +493,8 @@ impl Parser {
         while self.match_next(vec![LeftSquare]) {
             let ind = self.lexer.next().unwrap();
             match ind.get_type() {
-                Identifier | Num => {
-                    e = Expr::Get(Box::new(e), Box::new(Expr::new_from_tok(ind)))
-                },
-                _ => panic!("Indexes can only be identifiers or numbers!")
+                Identifier | Num => e = Expr::Get(Box::new(e), Box::new(Expr::new_from_tok(ind))),
+                _ => panic!("Indexes can only be identifiers or numbers!"),
             }
             self.expect(RightSquare);
         }
