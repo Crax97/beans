@@ -563,7 +563,7 @@ impl Evaluator {
 
         match callable_maybe {
             Value::Callable(call) => {
-                if call.arity() != args.len() {
+                if call.arity() != args.len() as i8 && call.arity() != -1 {
                     return Err(format!(
                         "Arguments differ in size! Expected {}, got {}",
                         call.arity(),

@@ -18,6 +18,12 @@ pub enum Value {
     Nil,
 }
 
+pub trait Call {
+    fn call(&self, eval: &mut Evaluator, args: Vec<Value>) -> Value;
+    fn arity(&self) -> i8;
+    fn to_string(&self) -> String;
+}
+
 pub struct Env {
     symbols: HashMap<String, Value>,
     enclosing: Option<Rc<RefCell<Env>>>,
@@ -45,11 +51,11 @@ pub struct Closure {
 
 pub struct NativeFn {
     fun: fn(Vec<Value>) -> Value,
-    arity: usize,
+    arity: i8,
 }
 
 impl NativeFn {
-    pub fn new(fun: fn(Vec<Value>) -> Value, arity: usize) -> NativeFn {
+    pub fn new(fun: fn(Vec<Value>) -> Value, arity: i8) -> NativeFn {
         NativeFn { fun, arity }
     }
 }
@@ -58,7 +64,7 @@ impl Call for NativeFn {
     fn call(&self, _eval: &mut Evaluator, args: Vec<Value>) -> Value {
         (self.fun)(args)
     }
-    fn arity(&self) -> usize {
+    fn arity(&self) -> i8 {
         self.arity
     }
     fn to_string(&self) -> String {
@@ -66,11 +72,6 @@ impl Call for NativeFn {
     }
 }
 
-pub trait Call {
-    fn call(&self, eval: &mut Evaluator, args: Vec<Value>) -> Value;
-    fn arity(&self) -> usize;
-    fn to_string(&self) -> String;
-}
 
 impl Clone for Value {
     fn clone(&self) -> Self {
@@ -139,7 +140,7 @@ impl Value {
                 }
                 fields_str = format!("{}}}\n", fields_str);
                 format!("Enum {} {}", name, fields_str)
-            },
+            }
             Value::StructInstance(inst) => {
                 let mut fields = format!("{{\n");
                 for field in inst.parent.get_fields() {
@@ -150,6 +151,15 @@ impl Value {
             Value::Nil => format!("Nil"),
             Value::Collection(map) => format!("Collection, {} elements", map.len()),
             Value::List(lis) => format!("List, {} elements", lis.len()),
+        }
+    }
+
+    pub fn string_repr(&self) -> String {
+        match self {
+            Value::Num(n) => format!("{}", *n),
+            Value::Str(s) => format!("{}", s.clone()),
+            Value::Bool(b) => format!("{}", *b),
+            _ => self.stringfiy()
         }
     }
 }
@@ -165,8 +175,8 @@ impl Call for Closure {
 
         let mut call_env = Env::new_enclosing(enclosing_rc);
         for i in 0..self.arity() {
-            let name = self.params.get(i).unwrap();
-            let arg = args.get(i).unwrap();
+            let name = self.params.get(i as usize).unwrap();
+            let arg = args.get(i as usize).unwrap();
             call_env.set(name.clone(), arg.clone());
         }
 
@@ -177,8 +187,8 @@ impl Call for Closure {
             _ => panic!("Cannot break or continue inside function!"),
         }
     }
-    fn arity(&self) -> usize {
-        self.params.len()
+    fn arity(&self) -> i8 {
+        self.params.len() as i8
     }
     fn to_string(&self) -> String {
         format!("<function>")
@@ -211,11 +221,11 @@ impl Call for StructFactory {
 
         Value::StructInstance(StructInstance::new(map, self.base.clone()))
     }
-    fn arity(&self) -> usize {
-        self.base.get_fields().len()
+    fn arity(&self) -> i8 {
+        self.base.get_fields().len() as i8
     }
 
-    fn to_string(&self) -> String{
+    fn to_string(&self) -> String {
         let mut fields = format!("{{\n");
         for field in self.get_fields() {
             fields = format!("\t{}{}", fields, field);
@@ -303,14 +313,89 @@ impl Env {
         self.symbols.insert(s, v);
     }
 
-    pub fn bind_fun(&mut self, name: &str, fun: fn(Vec<Value>) -> Value, arity: usize) -> &Self {
+    pub fn bind_fun(&mut self, name: &str, fun: fn(Vec<Value>) -> Value, arity: i8) -> &Self {
         let fun = NativeFn::new(fun, arity);
         self.set(String::from(name), Value::Callable(Rc::new(Box::new(fun))));
+        self
+    }
+
+    pub fn bind(&mut self, name: &str, val: Value) -> &Self {
+        self.set(String::from(name), val);
         self
     }
 
     pub fn add_constant(&mut self, name: &str, val: Value) -> &Self {
         self.set(String::from(name), val);
         self
+    }
+
+    fn make_callable(fun: fn(Vec<Value>) -> Value, arity: i8) -> Value {
+        Value::Callable(Rc::new(Box::new(NativeFn::new(fun, arity))))
+    }
+
+    pub fn build_stdlib(&mut self) {
+
+        let print = Env::make_callable(|vals : Vec<Value>| {
+            for val in vals {
+                print!("{} ", val.string_repr());
+            }
+            print!("\n");
+            Value::Nil
+        }, -1);
+
+        self.bind("print", print);
+
+        let mut math: HashMap<String, Value> = HashMap::new();
+        math.insert(
+            String::from("cos"),
+            Env::make_callable(
+                |vals| {
+                    let n = vals.first().unwrap().as_numeric();
+                    Value::Num(n.cos())
+                },
+                1,
+            ),
+        );
+        math.insert(
+            String::from("sin"),
+            Env::make_callable(
+                |vals| {
+                    let n = vals.first().unwrap().as_numeric();
+                    Value::Num(n.sin())
+                },
+                1,
+            ),
+        );
+        math.insert(
+            String::from("tan"),
+            Env::make_callable(
+                |vals| {
+                    let n = vals.first().unwrap().as_numeric();
+                    Value::Num(n.tan())
+                },
+                1,
+            ),
+        );
+        math.insert(
+            String::from("atan"),
+            Env::make_callable(
+                |vals| {
+                    let n = vals.first().unwrap().as_numeric();
+                    Value::Num(n.atan())
+                },
+                1,
+            ),
+        );
+        math.insert(
+            String::from("atan2"),
+            Env::make_callable(
+                |vals| {
+                    let n = vals.first().unwrap().as_numeric();
+                    let o = vals.get(1).unwrap().as_numeric();
+                    Value::Num(n.atan2(o))
+                },
+                1,
+            ),
+        );
     }
 }

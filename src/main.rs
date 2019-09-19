@@ -27,8 +27,8 @@ fn main() {
     let env = beans::create_global();
     let args = Args::from_args();
 
-    if (args.no_stdlib) {
-        // No stdlib in global env
+    if !args.no_stdlib {
+        env.as_ref().borrow_mut().build_stdlib();
     }
 
     if args.files.len() > 0 {
