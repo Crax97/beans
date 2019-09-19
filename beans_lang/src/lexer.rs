@@ -4,7 +4,6 @@ use super::tokens::*;
 
 use super::reader::Reader;
 
-
 macro_rules! peek_char {
     ($c : expr) => {
         if let Some(c) = $c.peek() {
@@ -30,7 +29,6 @@ macro_rules! match_next {
 mod tests {
     #[macro_use]
     use super::*;
-    
     // #[test]
     // fn test_match_next() {
     //     assert!(

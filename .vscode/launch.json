@@ -7,15 +7,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'beans_lang'",
+            "name": "Debug executable 'beans_interpreter'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=beans_lang",
-                    "--package=beans_lang"
+                    "--bin=beans_interpreter",
+                    "--package=beans_interpreter"
                 ],
                 "filter": {
-                    "name": "beans_lang",
+                    "name": "beans_interpreter",
                     "kind": "bin"
                 }
             },
