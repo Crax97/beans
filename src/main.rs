@@ -10,6 +10,7 @@ use std::cell::RefCell;
 use std::env;
 use std::fs::File;
 use std::io::Read;
+use std::io::Write;
 use std::rc::Rc;
 use structopt::StructOpt;
 
@@ -55,8 +56,11 @@ fn execute_files(global_env: Rc<RefCell<Env>>, file_names: &Vec<String>) {
 
                 for stmt in parser.parse() {
                     match evaluator.execute_statement(&stmt) {
-                        StatementResult::Ok(v) => println!("{}", v.stringfiy()),
-                        StatementResult::Return(v) => println!("{}", v.stringfiy()),
+                        StatementResult::Ok(_) | StatementResult::Return(_) => {}
+                        StatementResult::Failure(why) => {
+                            println!("Failure: {}, skipping file.", why);
+                            break;
+                        }
                         _ => {
                             println!("Unexpected result! Skipping file");
                             break;
@@ -96,6 +100,12 @@ fn run_interpreter(global_env: Rc<RefCell<Env>>) {
     loop {
         let mut program_complete = String::new();
         while {
+            if current_scope == 0 {
+                print!("> ");
+            } else {
+                print!("{}... ", current_scope);
+            }
+            std::io::stdout().flush().unwrap();
             let current_line = get_line();
 
             let should_scope_in = scope_in
@@ -108,11 +118,11 @@ fn run_interpreter(global_env: Rc<RefCell<Env>>) {
                 .fold(false, |acc, n| acc || n);
             if should_scope_in {
                 current_scope += 1;
-            } else if should_scope_out {
-                if current_scope == 0 {
-                    println!("Already at global scope")
-                };
-                current_scope -= 1;
+            }
+            if should_scope_out {
+                if current_scope != 0 {
+                    current_scope -= 1;
+                }
             }
 
             program_complete.push_str(&current_line.as_ref());

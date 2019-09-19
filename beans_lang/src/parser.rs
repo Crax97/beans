@@ -200,9 +200,11 @@ impl Parser {
             return Stmt::Return(expr);
         }
         if self.match_next(vec![Break]) {
+            self.expect(Semicolon);
             return Stmt::Break;
         }
         if self.match_next(vec![Continue]) {
+            self.expect(Semicolon);
             return Stmt::Continue;
         }
 

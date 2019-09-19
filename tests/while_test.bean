@@ -1,0 +1,7 @@
+var a = 0;
+var i = 10;
+while i > 0 do
+    a = a + i;
+    i = i - 1;
+end
+a;
