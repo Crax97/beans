@@ -1,0 +1,5 @@
+var x = 6 * math.cos(math.PI / 4);
+var y = 6 * math.sin(math.PI / 4);
+var len = math.sqrt(math.pow2(x) + math.pow2(y));
+
+print("cos(pi/4) is:", x, ", sin(pi/4) is:", y, ", sqrt(pow2(x) + pow2(y)) is:", len);

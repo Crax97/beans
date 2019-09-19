@@ -72,7 +72,6 @@ impl Call for NativeFn {
     }
 }
 
-
 impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
@@ -159,7 +158,7 @@ impl Value {
             Value::Num(n) => format!("{}", *n),
             Value::Str(s) => format!("{}", s.clone()),
             Value::Bool(b) => format!("{}", *b),
-            _ => self.stringfiy()
+            _ => self.stringfiy(),
         }
     }
 }
@@ -184,6 +183,7 @@ impl Call for Closure {
         match result {
             StatementResult::Return(e) => e,
             StatementResult::Ok(_) => Value::Nil,
+            StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
             _ => panic!("Cannot break or continue inside function!"),
         }
     }
@@ -334,18 +334,21 @@ impl Env {
     }
 
     pub fn build_stdlib(&mut self) {
-
-        let print = Env::make_callable(|vals : Vec<Value>| {
-            for val in vals {
-                print!("{} ", val.string_repr());
-            }
-            print!("\n");
-            Value::Nil
-        }, -1);
+        let print = Env::make_callable(
+            |vals: Vec<Value>| {
+                for val in vals {
+                    print!("{} ", val.string_repr());
+                }
+                print!("\n");
+                Value::Nil
+            },
+            -1,
+        );
 
         self.bind("print", print);
 
         let mut math: HashMap<String, Value> = HashMap::new();
+        math.insert(String::from("PI"), Value::Num(std::f64::consts::PI));
         math.insert(
             String::from("cos"),
             Env::make_callable(
@@ -397,5 +400,48 @@ impl Env {
                 1,
             ),
         );
+        math.insert(
+            String::from("pow"),
+            Env::make_callable(
+                |vals| {
+                    let n = vals.first().unwrap().as_numeric();
+                    let o = vals.get(1).unwrap().as_numeric();
+                    Value::Num(n.powf(o))
+                },
+                2,
+            ),
+        );
+        math.insert(
+            String::from("pow2"),
+            Env::make_callable(
+                |vals| {
+                    let n = vals.first().unwrap().as_numeric();
+                    Value::Num(n * n)
+                },
+                1,
+            ),
+        );
+        math.insert(
+            String::from("sqrt"),
+            Env::make_callable(
+                |vals| {
+                    let n = vals.first().unwrap().as_numeric();
+                    Value::Num(n.sqrt())
+                },
+                1,
+            ),
+        );
+        math.insert(
+            String::from("abs"),
+            Env::make_callable(
+                |vals| {
+                    let n = vals.first().unwrap().as_numeric();
+                    Value::Num(n.abs())
+                },
+                1,
+            ),
+        );
+
+        self.bind("math", Value::Collection(math));
     }
 }

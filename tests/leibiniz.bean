@@ -1,0 +1,17 @@
+# iterations: max number of approximations
+# accuracy: target difference between Math.PI and approx
+# This function will stop either if abs(PI - approx) < accuracy or after <iterations> approximations
+function leibiniz(iterations, accuracy) 
+    var pi = 0;
+    var divisor = 1;
+    var sign = 1;
+
+    for var i = 0; i < iterations; i = i + 1 do 
+        pi = pi + (4.0 / divisor) * sign;
+        sign = -sign;
+        divisor = divisor + 2;
+    end
+    return pi;
+end
+
+print("Calculated", leibiniz(5000, 0.0005));

@@ -321,40 +321,19 @@ impl Parser {
     }
 
     fn parse_for(&mut self) -> Stmt {
-        let var = self.name();
-        self.expect(In);
-        let generator = self.expr();
+        self.expect(Var);
+        let initializer = self.parse_var();
+
+        let condition = self.expr();
+        self.expect(Semicolon);
+
+        let updater = self.expr();
+
         self.expect(Do);
+        let mut body = self.body();
+        body.push(Stmt::ExprStmt(updater));
+        let while_body = Stmt::While(condition, body);
 
-        // generator().next()
-        let generator_it = Expr::Call(
-            Box::new(Expr::Get(
-                Box::new(generator),
-                Box::new(Expr::Id(var.clone())),
-            )),
-            vec![],
-        );
-
-        /* Desugared as
-        var v;
-        while (v = generator().next()) != Nil do
-            body
-        end
-        */
-
-        let initializer = Stmt::Var(var.clone(), None);
-        let body = self.body();
-        let while_body = Stmt::While(
-            Expr::Binary(
-                Box::new(Expr::Assign(
-                    Box::new(Expr::Id(var)),
-                    Box::new(generator_it),
-                )),
-                BangEquals,
-                Box::new(Expr::Nil),
-            ),
-            body,
-        );
         Stmt::Block(vec![initializer, while_body])
     }
 
