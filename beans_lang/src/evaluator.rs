@@ -6,6 +6,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use std::fs::File;
+use std::io::Read;
+
+use super::beans;
 use super::environments::*;
 
 #[cfg(test)]
@@ -326,9 +330,22 @@ impl Evaluator {
     }
 
     fn exec_import(&mut self, module: &String) -> StatementResult {
-        /// TODO: Add module importing
-        println!("Importing {}", module);
-        StatementResult::Ok(Value::Nil)
+        use std::ops::Add;
+        let mut file = match File::open(module.clone().add(&".bean")) {
+            Ok(f) => f,
+            Err(why) => {
+                return StatementResult::Failure(format!(
+                    "Error while importing file {}: {}",
+                    module, why
+                ));
+            }
+        };
+
+        let mut script_content = String::new();
+        file.read_to_string(&mut script_content).unwrap();
+        let mut evaluator = Evaluator::new_with_global(self.current.clone());
+
+        beans::exec_string(script_content.as_ref(), &mut evaluator)
     }
 
     fn exec_if(

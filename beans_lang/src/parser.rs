@@ -294,10 +294,16 @@ impl Parser {
     }
 
     fn parse_import(&mut self) -> Stmt {
-        let name = self.name();
+        let next_token = self.lexer.next();
+        let tok_type = next_token.unwrap().get_type();
+
+        let modname = match tok_type {
+            TokenType::Str => { next_token.unwrap().as_String() },
+            _ => panic!("Expected string as module name")
+        };
         self.expect(Semicolon);
 
-        Stmt::Import(name)
+        Stmt::Import(modname)
     }
 
     fn if_cond_and_exprs(&mut self) -> (Expr, Vec<Stmt>) {

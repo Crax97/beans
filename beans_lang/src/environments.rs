@@ -345,6 +345,13 @@ impl Env {
             -1,
         );
 
+        // self.bind("pwd", Env::make_callable(
+        //     |_| {
+        //         let current_dir = std::env::current_dir().unwrap();
+        //         let current_dir = current_dir.to_str().unwrap();
+        //         Value::Str(current_dir.to_string())
+        //     }, 0));
+
         self.bind("print", print);
 
         let mut math: HashMap<String, Value> = HashMap::new();

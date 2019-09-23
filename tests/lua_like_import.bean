@@ -1,0 +1,4 @@
+var actor = {};
+actor.PrintName = lambda() 
+    print("Name");
+end;
