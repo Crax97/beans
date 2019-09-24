@@ -6,6 +6,18 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_env_enclosing() {
+        let mut env = Env::new();
+        env.bind("x", Value::Num(42.0));
+        let enclosing = Env::new_enclosing(Rc::new(RefCell::new(env)));
+        assert!(enclosing.get(&"x".to_string()).as_numeric() == 42.0);
+    }
+}
+
 pub enum Value {
     Num(f64),
     Str(String),
@@ -176,7 +188,7 @@ impl Call for Closure {
         for i in 0..self.arity() {
             let name = self.params.get(i as usize).unwrap();
             let arg = args.get(i as usize).unwrap();
-            call_env.set(name.clone(), arg.clone());
+            call_env.insert(name.clone(), arg.clone());
         }
 
         let result = eval.evaluate_in_env(&self.fun, call_env);
@@ -310,17 +322,22 @@ impl Env {
     }
 
     pub fn set(&mut self, s: String, v: Value) {
+        if self.symbols.contains_key(&s) {
+            self.symbols.insert(s, v);
+        } else if let Some(env) = &self.enclosing {
+            let mut env_enclosing = env.as_ref().borrow_mut();
+            env_enclosing.set(s, v);
+        } else {
+            println!("Undefined value! {}", s);
+        }
+    }
+
+    pub fn insert(&mut self, s: String, v: Value) {
         self.symbols.insert(s, v);
     }
 
-    pub fn bind_fun(&mut self, name: &str, fun: fn(Vec<Value>) -> Value, arity: i8) -> &Self {
-        let fun = NativeFn::new(fun, arity);
-        self.set(String::from(name), Value::Callable(Rc::new(Box::new(fun))));
-        self
-    }
-
     pub fn bind(&mut self, name: &str, val: Value) -> &Self {
-        self.set(String::from(name), val);
+        self.insert(String::from(name), val);
         self
     }
 

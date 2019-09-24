@@ -409,7 +409,7 @@ impl Evaluator {
             value = res;
         }
         let ret = value.clone();
-        self.current.borrow_mut().set(id.clone(), value.clone());
+        self.current.borrow_mut().insert(id.clone(), value.clone());
         StatementResult::Ok(ret)
     }
     fn exec_fundef(
@@ -424,7 +424,7 @@ impl Evaluator {
             params.to_vec(),
         ))));
         let ret = closure.clone();
-        self.current.borrow_mut().set(id.clone(), closure);
+        self.current.borrow_mut().insert(id.clone(), closure);
         StatementResult::Ok(ret)
     }
 
@@ -435,7 +435,7 @@ impl Evaluator {
         let strukt = Value::Callable(Rc::new(Box::new(factory)));
 
         let mut current_env = self.current.as_ref().borrow_mut();
-        current_env.set(name.clone(), strukt.clone());
+        current_env.insert(name.clone(), strukt.clone());
         StatementResult::Ok(strukt)
     }
 
@@ -469,7 +469,7 @@ impl Evaluator {
         }
         let enumt = Value::Enum(name.clone(), variants);
         let ret = enumt.clone();
-        self.current.borrow_mut().set(name.clone(), enumt);
+        self.current.borrow_mut().insert(name.clone(), enumt);
         StatementResult::Ok(ret)
     }
 

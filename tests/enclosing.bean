@@ -1,0 +1,9 @@
+var x = 42;
+function add_x(n)
+    print("x before:", x);
+    x = x + n;
+    print("x after:", x);
+end
+
+add_x(10);
+print(x);
