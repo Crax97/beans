@@ -122,11 +122,19 @@ mod tests {
 
 pub struct Parser {
     lexer: Lexer,
+    had_error: bool,
 }
 
 impl Parser {
     pub fn new(lex: Lexer) -> Parser {
-        Parser { lexer: lex }
+        Parser {
+            lexer: lex,
+            had_error: false,
+        }
+    }
+
+    pub fn error(&self) -> bool {
+        self.had_error
     }
 
     pub fn parse(&mut self) -> Vec<Stmt> {
@@ -134,6 +142,9 @@ impl Parser {
         let mut vec = vec![];
         while !self.lexer.is_at_end() {
             vec.push(self.statement());
+            if self.had_error {
+                break;
+            }
         }
         vec
     }
@@ -151,20 +162,24 @@ impl Parser {
     }
 
     fn syntax_error(&self, t: &Token, msg: String) {
-        panic!(format!("Syntax error at line {}: {}", t.get_line(), msg));
+        println!("Syntax error at line {}: {}", t.get_line(), msg);
     }
 
     fn expect(&mut self, t: TokenType) {
         if !self.match_next(vec![t]) {
-            let token_type = self.lexer.peek().unwrap();
-            if self.lexer.is_at_end() {
-                self.syntax_error(token_type, format!("Expected {:?}, got EOF", t));
+            if let Some(token_type) = self.lexer.peek() {
+                if self.lexer.is_at_end() {
+                    self.syntax_error(token_type, format!("Expected {:?}, got EOF", t));
+                } else {
+                    self.syntax_error(
+                        token_type,
+                        format!("Expected {:?}, got {:?}", t, token_type.get_type()),
+                    );
+                }
             } else {
-                self.syntax_error(
-                    token_type,
-                    format!("Expected {:?}, got {:?}", t, token_type.get_type()),
-                );
+                println!("Expected {:?}, got EOF", t);
             }
+            self.had_error = true;
         }
     }
 
@@ -235,6 +250,7 @@ impl Parser {
                 self.lexer.peek().unwrap(),
                 String::from("Structs can't be empty!"),
             );
+            self.had_error = true;
         }
         while {
             let next = self.name();
@@ -254,6 +270,7 @@ impl Parser {
                 self.lexer.peek().unwrap(),
                 String::from("Enums can't be empty!"),
             );
+            self.had_error = true;
         }
         while {
             let next = self.name();
@@ -298,8 +315,8 @@ impl Parser {
         let tok_type = next_token.unwrap().get_type();
 
         let modname = match tok_type {
-            TokenType::Str => { next_token.unwrap().as_String() },
-            _ => panic!("Expected string as module name")
+            TokenType::Str => next_token.unwrap().as_String(),
+            _ => panic!("Expected string as module name"),
         };
         self.expect(Semicolon);
 
@@ -513,6 +530,7 @@ impl Parser {
                 self.lexer.peek().unwrap(),
                 format!("{:?} can't be parsed as an expression!", tok_type),
             );
+            self.had_error = true;
         }
 
         let previous_type = self.lexer.prev().unwrap().get_type();
@@ -520,7 +538,9 @@ impl Parser {
             self.lexer.prev().unwrap(),
             format!("Premature EOF after {:?}!", previous_type),
         );
-        unreachable!()
+        self.had_error = true;
+
+        Expr::Nil
     }
 
     fn dictionary(&mut self) -> Expr {
@@ -567,7 +587,8 @@ impl Parser {
                     self.lexer.prev().unwrap(),
                     String::from("Expected identifier!"),
                 );
-                unreachable!()
+                self.had_error = true;
+                String::from("none duh")
             }
         }
     }

@@ -53,8 +53,13 @@ fn execute_files(global_env: Rc<RefCell<Env>>, file_names: &Vec<String>) {
 
                 let file_env = beans::create_with_global(global_env.clone());
                 let mut evaluator = beans::create_evaluator(file_env);
+                let stmts = parser.parse();
 
-                for stmt in parser.parse() {
+                if parser.error() {
+                    println!("Skipping file due to a parse error");
+                    continue;
+                }
+                for stmt in stmts {
                     match evaluator.execute_statement(&stmt) {
                         StatementResult::Ok(_) | StatementResult::Return(_) => {}
                         StatementResult::Failure(why) => {
@@ -130,8 +135,13 @@ fn run_interpreter(global_env: Rc<RefCell<Env>>) {
             current_scope != 0
         } {}
         let mut parser = parser::Parser::new(lexer::Lexer::new(program_complete));
+        let stmts = parser.parse();
 
-        for stmt in parser.parse() {
+        if parser.error() {
+            continue;
+        }
+
+        for stmt in stmts {
             match evaluator.execute_statement(&stmt) {
                 StatementResult::Ok(v) => println!("{}", v.stringfiy()),
                 StatementResult::Return(v) => println!("{}", v.stringfiy()),

@@ -344,7 +344,6 @@ impl Evaluator {
         let mut script_content = String::new();
         file.read_to_string(&mut script_content).unwrap();
         let mut evaluator = Evaluator::new_with_global(self.current.clone());
-
         beans::exec_string(script_content.as_ref(), &mut evaluator)
     }
 

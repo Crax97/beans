@@ -346,11 +346,50 @@ impl Env {
         self
     }
 
-    fn make_callable(fun: fn(Vec<Value>) -> Value, arity: i8) -> Value {
+    pub fn make_callable(fun: fn(Vec<Value>) -> Value, arity: i8) -> Value {
         Value::Callable(Rc::new(Box::new(NativeFn::new(fun, arity))))
     }
 
+    fn import(&mut self, module: String) -> Value {
+                use std::ops::Add;
+                use std::fs::File;
+                use std::io::Read;
+                let mut file = match File::open(module.clone().add(&".bean")) {
+                    Ok(f) => f,
+                    Err(why) => {
+                        println!(
+                            "Error while importing file {}: {}",
+                            module, why
+                        );
+                        return Value::Nil;
+                    }
+                };
+
+                let mut script_content = String::new();
+                file.read_to_string(&mut script_content).unwrap();
+                let mut evaluator = Evaluator::new();
+                match super::beans::exec_string(script_content.as_ref(), &mut evaluator) {
+                    StatementResult::Ok(val) => val,
+                    StatementResult::Return(val) => val,
+                    StatementResult::Failure(why) => {
+                        println!("Failure! {}", why);
+                        Value::Nil
+                    },
+                    _ => {
+                        Value::Nil
+                    }
+                }
+            }
+
     pub fn build_stdlib(&mut self) {
+
+        // let import_fun = Env::make_callable(
+        //     |vals: Vec<Value>| {
+        //         let Str = vals.first().unwrap().as_string();
+        //         self.import(Str)
+        //     }
+        //     , 1)
+
         let print = Env::make_callable(
             |vals: Vec<Value>| {
                 for val in vals {

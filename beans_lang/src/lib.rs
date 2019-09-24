@@ -23,7 +23,7 @@ mod tests {
         };
 
         let glob = beans::create_global();
-        glob.as_ref().borrow_mut().bind_fun("sin", sin_v, 1);
+        glob.as_ref().borrow_mut().bind("sin", Env::make_callable(sin_v, 1));
 
         let expr = "sin(0.0);";
         let mut evaluator = beans::create_evaluator(glob);
@@ -50,8 +50,13 @@ mod tests {
             Value::Num(d.sin())
         };
 
-        first.as_ref().borrow_mut().bind_fun("cos", cos_fun, 1);
-        sec.as_ref().borrow_mut().bind_fun("sin", sin_fun, 1);
+        first
+            .as_ref()
+            .borrow_mut()
+            .bind("cos", Env::make_callable(cos_fun, 1));
+        sec.as_ref()
+            .borrow_mut()
+            .bind("sin", Env::make_callable(sin_fun, 1));
 
         let sin_expr = "sin(0.0);";
         let cos_expr = "cos(0.0);";
