@@ -350,7 +350,7 @@ impl Env {
         Value::Callable(Rc::new(Box::new(NativeFn::new(fun, arity))))
     }
 
-    fn import(&mut self, module: String) -> Value {
+    fn import(module: String) -> Value {
         use std::fs::File;
         use std::io::Read;
         use std::ops::Add;
@@ -366,7 +366,6 @@ impl Env {
         file.read_to_string(&mut script_content).unwrap();
         let mut evaluator = Evaluator::new();
         match super::beans::exec_string(script_content.as_ref(), &mut evaluator) {
-            StatementResult::Ok(val) => val,
             StatementResult::Return(val) => val,
             StatementResult::Failure(why) => {
                 println!("Failure! {}", why);
@@ -377,12 +376,18 @@ impl Env {
     }
 
     pub fn build_stdlib(&mut self) {
-        // let import_fun = Env::make_callable(
-        //     |vals: Vec<Value>| {
-        //         let Str = vals.first().unwrap().as_string();
-        //         self.import(Str)
-        //     }
-        //     , 1)
+        let import_fun = Env::make_callable(
+            |vals: Vec<Value>| {
+                let first = vals.first().unwrap();
+                if !first.is_string() {
+                    println!("Error! Module name must be a string!");
+                    return Value::Nil;
+                }
+
+                let mod_name = first.string_repr();
+                Env::import(mod_name)
+            }
+            , 1);
 
         let print = Env::make_callable(
             |vals: Vec<Value>| {
@@ -403,6 +408,7 @@ impl Env {
         //     }, 0));
 
         self.bind("print", print);
+        self.bind("import", import_fun);
 
         let mut math: HashMap<String, Value> = HashMap::new();
         math.insert(String::from("PI"), Value::Num(std::f64::consts::PI));

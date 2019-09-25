@@ -13,7 +13,6 @@ pub enum Stmt {
     StructDef(Id, Vec<Id>),
     EnumDef(Id, Vec<(Id, Option<Expr>)>),
     Return(Expr),
-    Import(Id),
     Break,
     Continue,
 }

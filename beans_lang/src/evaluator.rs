@@ -765,7 +765,6 @@ impl Evaluate<StatementResult, Result<Value, String>> for Evaluator {
             Stmt::StructDef(name, members) => self.exec_structdef(name, members),
             Stmt::EnumDef(name, values) => self.exec_enumdef(name, values),
             Stmt::Return(expr) => self.exec_return(expr),
-            Stmt::Import(module) => self.exec_import(module),
             Stmt::Break => StatementResult::Break,
             Stmt::Continue => StatementResult::Continue,
         }

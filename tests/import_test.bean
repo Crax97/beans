@@ -1,3 +1,3 @@
-import "tests/factorial";
+var fact = import("tests/factorial");
 
-print(factorial(5));
+print(fact.factorial(5));

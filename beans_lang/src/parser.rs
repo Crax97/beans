@@ -196,9 +196,6 @@ impl Parser {
         if self.match_next(vec![Enum]) {
             return self.parse_enum();
         }
-        if self.match_next(vec![Import]) {
-            return self.parse_import();
-        }
 
         if self.match_next(vec![If]) {
             return self.parse_if();
@@ -308,19 +305,6 @@ impl Parser {
         }
 
         Stmt::If(branches, else_block)
-    }
-
-    fn parse_import(&mut self) -> Stmt {
-        let next_token = self.lexer.next();
-        let tok_type = next_token.unwrap().get_type();
-
-        let modname = match tok_type {
-            TokenType::Str => next_token.unwrap().as_String(),
-            _ => panic!("Expected string as module name"),
-        };
-        self.expect(Semicolon);
-
-        Stmt::Import(modname)
     }
 
     fn if_cond_and_exprs(&mut self) -> (Expr, Vec<Stmt>) {

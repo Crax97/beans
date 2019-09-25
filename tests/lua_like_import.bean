@@ -1,6 +1,8 @@
-var actor = {};
+## Need to do static name resolution
+
+var actor = {name: "Arthur"};
 actor.PrintName = lambda() 
-    print("Name");
+    print(actor.name);
 end;
 
-print(actor);
+return actor;
