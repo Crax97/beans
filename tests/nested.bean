@@ -1,0 +1,11 @@
+var builder = {};
+builder.new = lambda(n)
+    var self = {};
+    self.n = n;
+    self.addnum = lambda(num) 
+        return self.n + num; 
+    end;
+    return self;
+end;
+
+return builder;

@@ -133,11 +133,11 @@ impl Value {
         match self {
             Value::Num(n) => Ok(Value::Num(-*n)),
             Value::Bool(b) => Ok(Value::Bool(!*b)),
-            _ => Err(format!("Cannot negate value {}", self.stringfiy())),
+            _ => Err(format!("Cannot negate value {}", self.stringify())),
         }
     }
 
-    pub fn stringfiy(&self) -> String {
+    pub fn stringify(&self) -> String {
         match self {
             Value::Num(n) => format!("Num: {}", *n),
             Value::Str(s) => format!("Str: {}", s.clone()),
@@ -160,7 +160,17 @@ impl Value {
                 format!("{} Instance {}}}", inst.parent.get_name(), fields)
             }
             Value::Nil => format!("Nil"),
-            Value::Collection(map) => format!("Collection, {} elements", map.borrow().len()),
+            Value::Collection(map) => {
+                let borrowed_map = map.borrow();
+                let mut content = String::new();
+                for el in borrowed_map.iter() {
+                    let key = el.0;
+                    let value = el.1;
+                    content = format!("{}\t{} : {}\n", content, key, value.stringify())
+                }
+
+                format!("Collection: {{\n{}\n}}", content)
+            }
             Value::List(lis) => format!("List, {} elements", lis.len()),
         }
     }
@@ -170,7 +180,7 @@ impl Value {
             Value::Num(n) => format!("{}", *n),
             Value::Str(s) => format!("{}", s.clone()),
             Value::Bool(b) => format!("{}", *b),
-            _ => self.stringfiy(),
+            _ => self.stringify(),
         }
     }
 }
@@ -364,7 +374,10 @@ impl Env {
 
         let mut script_content = String::new();
         file.read_to_string(&mut script_content).unwrap();
-        let mut evaluator = Evaluator::new();
+        let mut env = Env::new();
+        env.build_stdlib();
+
+        let mut evaluator = Evaluator::new_with_global(Rc::new(RefCell::new(env)));
         match super::beans::exec_string(script_content.as_ref(), &mut evaluator) {
             StatementResult::Return(val) => val,
             StatementResult::Failure(why) => {
@@ -386,8 +399,9 @@ impl Env {
 
                 let mod_name = first.string_repr();
                 Env::import(mod_name)
-            }
-            , 1);
+            },
+            1,
+        );
 
         let print = Env::make_callable(
             |vals: Vec<Value>| {

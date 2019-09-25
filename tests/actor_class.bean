@@ -1,0 +1,17 @@
+## Need to do static name resolution
+
+var actor = {};
+
+## Should make like if a collection has new, then it can be called
+## eg. var actor_dennis = actor("Dennis", "Ritchie");
+actor.new = lambda(name, lastname) 
+    var self = {};
+    self.name = name;
+    self.lastname = lastname;
+    self.say_hi = lambda()
+        print("Name:", self.name, ", Last name:", self.lastname);
+    end;
+    return self;
+end;
+
+return actor;

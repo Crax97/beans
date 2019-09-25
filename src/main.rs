@@ -163,8 +163,8 @@ fn run_interpreter(global_env: Rc<RefCell<Env>>) {
 
         for stmt in stmts {
             match evaluator.execute_statement(&stmt) {
-                StatementResult::Ok(v) => println!("{}", v.stringfiy()),
-                StatementResult::Return(v) => println!("{}", v.stringfiy()),
+                StatementResult::Ok(v) => println!("{}", v.stringify()),
+                StatementResult::Return(v) => println!("{}", v.stringify()),
                 StatementResult::Failure(why) => println!("Failure: {}", why),
                 _ => {
                     println!("Unexpected result while in interactive mode, stopping execution");

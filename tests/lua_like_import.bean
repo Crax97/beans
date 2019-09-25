@@ -1,8 +1,0 @@
-## Need to do static name resolution
-
-var actor = {name: "Arthur"};
-actor.PrintName = lambda() 
-    print(actor.name);
-end;
-
-return actor;

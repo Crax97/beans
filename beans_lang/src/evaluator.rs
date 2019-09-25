@@ -28,7 +28,7 @@ mod tests {
     //     for stmt in stmts {
     //         match evaluator.execute_statement(&stmt) {
     //             StatementResult::Ok(sv) => {
-    //                 println!("{}", sv.stringfiy());
+    //                 println!("{}", sv.stringify());
     //             }
     //             _ => {}
     //         }
@@ -260,7 +260,7 @@ macro_rules! operation {
                 if l.is_numeric() && r.is_numeric() {
                     Ok(Value::$variant(l.as_numeric() $op r.as_numeric()))
                 } else {
-                    Err(format!("Unsummable values! {}, {}", l.stringfiy(), r.stringfiy()))
+                    Err(format!("Unsummable values! {}, {}", l.stringify(), r.stringify()))
                 }
             },
             (Err(lwhy), _) => Err(format!("In left side of operation: {}", lwhy)),
@@ -338,24 +338,6 @@ impl Evaluator {
             Value::Collection(map) => map.borrow().len() != 0,
             Value::List(elts) => elts.len() != 0,
         }
-    }
-
-    fn exec_import(&mut self, module: &String) -> StatementResult {
-        use std::ops::Add;
-        let mut file = match File::open(module.clone().add(&".bean")) {
-            Ok(f) => f,
-            Err(why) => {
-                return StatementResult::Failure(format!(
-                    "Error while importing file {}: {}",
-                    module, why
-                ));
-            }
-        };
-
-        let mut script_content = String::new();
-        file.read_to_string(&mut script_content).unwrap();
-        let mut evaluator = Evaluator::new_with_global(self.current.clone());
-        beans::exec_string(script_content.as_ref(), &mut evaluator)
     }
 
     fn exec_if(
@@ -503,12 +485,12 @@ impl Evaluator {
                 if l.is_numeric() && r.is_numeric() {
                     Ok(Value::Num(l.as_numeric() + r.as_numeric()))
                 } else if l.is_string() || r.is_string() {
-                    Ok(Value::Str(format!("{}{}", l.stringfiy(), r.stringfiy())))
+                    Ok(Value::Str(format!("{}{}", l.stringify(), r.stringify())))
                 } else {
                     Err(format!(
                         "Unsummable values! {}, {}",
-                        l.stringfiy(),
-                        r.stringfiy()
+                        l.stringify(),
+                        r.stringify()
                     ))
                 }
             }
@@ -606,7 +588,10 @@ impl Evaluator {
 
                 Ok(call.call(self, args_evaluated))
             }
-            _ => Ok(Value::Nil),
+            _ => {
+                println!("Can't call value of type {}!", callable_maybe.stringify());
+                Ok(Value::Nil)
+            }
         }
     }
 
@@ -661,7 +646,7 @@ impl Evaluator {
                 });
             }
             _ => {
-                return Err(format!("Invalid get target! {}", base.stringfiy()));
+                return Err(format!("Invalid get target! {}", base.stringify()));
             }
         }
     }
@@ -681,7 +666,7 @@ impl Evaluator {
                             _ => return Err(format!("Collections are only indexed by strings")),
                         };
 
-                    map.borrow_mut().insert(id.clone(), value.clone());
+                        map.borrow_mut().insert(id.clone(), value.clone());
                         println!();
                     }
                     Value::List(mut lis) => {
