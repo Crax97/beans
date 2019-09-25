@@ -25,22 +25,35 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'beans_lang'",
+            "name": "Debug unit tests in executable 'beans_interpreter'",
             "cargo": {
                 "args": [
                     "test",
                     "strukt",
                     "--no-run",
-                    "--bin=beans_lang",
-                    "--package=beans_lang"
+                    "--bin=beans_interpreter",
+                    "--package=beans_interpreter"
                 ],
                 "filter": {
-                    "name": "beans_lang",
+                    "name": "beans_interpreter",
                     "kind": "bin"
                 }
             },
             "args": [],
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'beans_lang'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "dict2",
+                ]
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}/beans_lang"
         }
     ]
 }

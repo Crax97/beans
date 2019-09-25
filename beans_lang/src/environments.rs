@@ -25,9 +25,25 @@ pub enum Value {
     Callable(Rc<Box<dyn Call>>),
     Enum(String, HashMap<String, f64>),
     StructInstance(StructInstance),
-    Collection(HashMap<String, Value>),
+    Collection(Rc<RefCell<HashMap<String, Value>>>),
     List(Vec<Value>),
     Nil,
+}
+
+impl Clone for Value {
+    fn clone(&self) -> Self {
+        match self {
+            Value::Num(n) => Value::Num(*n),
+            Value::Str(s) => Value::Str(s.clone()),
+            Value::Bool(b) => Value::Bool(*b),
+            Value::Callable(call) => Value::Callable(call.clone()),
+            Value::Enum(name, fields) => Value::Enum(name.clone(), fields.clone()),
+            Value::StructInstance(inst) => Value::StructInstance(inst.clone()),
+            Value::Collection(map) => Value::Collection(map.clone()),
+            Value::List(lis) => Value::List(lis.clone()),
+            Value::Nil => Value::Nil,
+        }
+    }
 }
 
 pub trait Call {
@@ -81,22 +97,6 @@ impl Call for NativeFn {
     }
     fn to_string(&self) -> String {
         format!("native function")
-    }
-}
-
-impl Clone for Value {
-    fn clone(&self) -> Self {
-        match self {
-            Value::Num(n) => Value::Num(*n),
-            Value::Str(s) => Value::Str(s.clone()),
-            Value::Bool(b) => Value::Bool(*b),
-            Value::Callable(call) => Value::Callable(call.clone()),
-            Value::Enum(name, fields) => Value::Enum(name.clone(), fields.clone()),
-            Value::StructInstance(inst) => Value::StructInstance(inst.clone()),
-            Value::Collection(map) => Value::Collection(map.clone()),
-            Value::List(lis) => Value::List(lis.clone()),
-            Value::Nil => Value::Nil,
-        }
     }
 }
 
@@ -160,7 +160,7 @@ impl Value {
                 format!("{} Instance {}}}", inst.parent.get_name(), fields)
             }
             Value::Nil => format!("Nil"),
-            Value::Collection(map) => format!("Collection, {} elements", map.len()),
+            Value::Collection(map) => format!("Collection, {} elements", map.borrow().len()),
             Value::List(lis) => format!("List, {} elements", lis.len()),
         }
     }
@@ -351,38 +351,32 @@ impl Env {
     }
 
     fn import(&mut self, module: String) -> Value {
-                use std::ops::Add;
-                use std::fs::File;
-                use std::io::Read;
-                let mut file = match File::open(module.clone().add(&".bean")) {
-                    Ok(f) => f,
-                    Err(why) => {
-                        println!(
-                            "Error while importing file {}: {}",
-                            module, why
-                        );
-                        return Value::Nil;
-                    }
-                };
-
-                let mut script_content = String::new();
-                file.read_to_string(&mut script_content).unwrap();
-                let mut evaluator = Evaluator::new();
-                match super::beans::exec_string(script_content.as_ref(), &mut evaluator) {
-                    StatementResult::Ok(val) => val,
-                    StatementResult::Return(val) => val,
-                    StatementResult::Failure(why) => {
-                        println!("Failure! {}", why);
-                        Value::Nil
-                    },
-                    _ => {
-                        Value::Nil
-                    }
-                }
+        use std::fs::File;
+        use std::io::Read;
+        use std::ops::Add;
+        let mut file = match File::open(module.clone().add(&".bean")) {
+            Ok(f) => f,
+            Err(why) => {
+                println!("Error while importing file {}: {}", module, why);
+                return Value::Nil;
             }
+        };
+
+        let mut script_content = String::new();
+        file.read_to_string(&mut script_content).unwrap();
+        let mut evaluator = Evaluator::new();
+        match super::beans::exec_string(script_content.as_ref(), &mut evaluator) {
+            StatementResult::Ok(val) => val,
+            StatementResult::Return(val) => val,
+            StatementResult::Failure(why) => {
+                println!("Failure! {}", why);
+                Value::Nil
+            }
+            _ => Value::Nil,
+        }
+    }
 
     pub fn build_stdlib(&mut self) {
-
         // let import_fun = Env::make_callable(
         //     |vals: Vec<Value>| {
         //         let Str = vals.first().unwrap().as_string();
@@ -505,6 +499,6 @@ impl Env {
             ),
         );
 
-        self.bind("math", Value::Collection(math));
+        self.bind("math", Value::Collection(Rc::new(RefCell::new(math))));
     }
 }

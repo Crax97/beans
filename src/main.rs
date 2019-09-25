@@ -14,6 +14,26 @@ use std::io::Write;
 use std::rc::Rc;
 use structopt::StructOpt;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn dynamic_dict() {
+        let prog = "
+        var dic = {};
+        dic.k = 42;
+        dic.k;
+        ";
+
+        let env = beans::create_global();
+        let mut evaluator = beans::create_evaluator(env);
+        match beans::exec_string(prog, &mut evaluator) {
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 42.0),
+            _ => panic!("Failure on dict!"),
+        }
+    }
+}
+
 #[derive(StructOpt)]
 #[structopt(rename_all = "kebab-case")]
 struct Args {

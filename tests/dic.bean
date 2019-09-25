@@ -1,0 +1,3 @@
+var dic = {};
+dic.k = 42;
+print (dic.k);

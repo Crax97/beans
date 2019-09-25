@@ -17,32 +17,32 @@ mod tests {
     use super::super::evaluator::Evaluate;
     use super::super::evaluator::StatementResult;
     use super::super::*;
-    #[test]
-    fn try_simple_expr() {
-        let expr = "3 * 2;";
-        let lexer = lexer::Lexer::new(String::from(expr));
-        let mut parser = parser::Parser::new(lexer);
-        let stmts = parser.parse();
+    //#[test]
+    // fn try_simple_expr() {
+    //     let expr = "3 * 2;";
+    //     let lexer = lexer::Lexer::new(String::from(expr));
+    //     let mut parser = parser::Parser::new(lexer);
+    //     let stmts = parser.parse();
 
-        let mut evaluator = evaluator::Evaluator::new();
-        for stmt in stmts {
-            match evaluator.execute_statement(&stmt) {
-                StatementResult::Ok(sv) => {
-                    println!("{}", sv.stringfiy());
-                }
-                _ => {}
-            }
-        }
-    }
+    //     let mut evaluator = evaluator::Evaluator::new();
+    //     for stmt in stmts {
+    //         match evaluator.execute_statement(&stmt) {
+    //             StatementResult::Ok(sv) => {
+    //                 println!("{}", sv.stringfiy());
+    //             }
+    //             _ => {}
+    //         }
+    //     }
+    // }
 
-    fn exec_single_str(s: &str) -> StatementResult {
-        let lexer = lexer::Lexer::new(String::from(s));
-        let mut parser = parser::Parser::new(lexer);
-        let stmts = parser.parse();
+    // fn exec_single_str(s: &str) -> StatementResult {
+    //     let lexer = lexer::Lexer::new(String::from(s));
+    //     let mut parser = parser::Parser::new(lexer);
+    //     let stmts = parser.parse();
 
-        let mut evaluator = evaluator::Evaluator::new();
-        return evaluator.execute_statement(&stmts.first().unwrap());
-    }
+    //     let mut evaluator = evaluator::Evaluator::new();
+    //     return evaluator.execute_statement(&stmts.first().unwrap());
+    // }
 
     fn exec_prog(s: &str) -> StatementResult {
         let lexer = lexer::Lexer::new(String::from(s));
@@ -57,190 +57,201 @@ mod tests {
         value
     }
 
-    #[test]
-    fn try_logical() {
-        match exec_single_str("2 == 2;") {
-            StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
-            _ => panic!("Wrong result in 2 == 2!"),
-        }
-        match exec_single_str("2 != 2;") {
-            StatementResult::Ok(v) => assert!(v.as_numeric() != 1.0),
-            _ => panic!("Wrong result in 2 != 2!"),
-        }
-        match exec_single_str("2 < 3;") {
-            StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
-            _ => panic!("Wrong result in 2 < 3!"),
-        }
-        match exec_single_str("2 > 3;") {
-            StatementResult::Ok(v) => assert!(v.as_numeric() != 1.0),
-            _ => panic!("Wrong result in 2 > 3!"),
-        }
-        match exec_single_str("(2 > 3) or (3 > 1);") {
-            StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
-            _ => panic!("Wrong result in 2 > 3!"),
-        }
-        match exec_single_str("(2 > 3) and (3 > 1);") {
-            StatementResult::Ok(v) => assert!(v.as_numeric() != 1.0),
-            _ => panic!("Wrong result in 2 > 3!"),
-        }
-        match exec_single_str("(2 > 3) or (3 > 1);") {
-            StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
-            _ => panic!("Wrong result in 2 > 3!"),
-        }
-        match exec_single_str("((2 > 3) and (3 > 1)) or (2 + 3 - 5 * 6 < 0);") {
-            StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
-            _ => panic!("Wrong result in 2 > 3!"),
-        }
-        match exec_single_str("((2 > 3) and (3 > 1)) and (2 + 3 - 5 * 6 < 0);") {
-            StatementResult::Ok(v) => assert!(v.as_numeric() != 1.0),
-            _ => panic!("Wrong result in 2 > 3!"),
-        }
-    }
+    // #[test]
+    // fn try_logical() {
+    //     match exec_single_str("2 == 2;") {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
+    //         _ => panic!("Wrong result in 2 == 2!"),
+    //     }
+    //     match exec_single_str("2 != 2;") {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() != 1.0),
+    //         _ => panic!("Wrong result in 2 != 2!"),
+    //     }
+    //     match exec_single_str("2 < 3;") {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
+    //         _ => panic!("Wrong result in 2 < 3!"),
+    //     }
+    //     match exec_single_str("2 > 3;") {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() != 1.0),
+    //         _ => panic!("Wrong result in 2 > 3!"),
+    //     }
+    //     match exec_single_str("(2 > 3) or (3 > 1);") {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
+    //         _ => panic!("Wrong result in 2 > 3!"),
+    //     }
+    //     match exec_single_str("(2 > 3) and (3 > 1);") {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() != 1.0),
+    //         _ => panic!("Wrong result in 2 > 3!"),
+    //     }
+    //     match exec_single_str("(2 > 3) or (3 > 1);") {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
+    //         _ => panic!("Wrong result in 2 > 3!"),
+    //     }
+    //     match exec_single_str("((2 > 3) and (3 > 1)) or (2 + 3 - 5 * 6 < 0);") {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
+    //         _ => panic!("Wrong result in 2 > 3!"),
+    //     }
+    //     match exec_single_str("((2 > 3) and (3 > 1)) and (2 + 3 - 5 * 6 < 0);") {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() != 1.0),
+    //         _ => panic!("Wrong result in 2 > 3!"),
+    //     }
+    // }
+
+    // #[test]
+    // fn try_statements() {
+    //     let if_example = "if 2 < 3 then
+    //             return 3.14;
+    //         else
+    //             return 6.28;
+    //         end";
+    //     match exec_single_str(if_example) {
+    //         StatementResult::Return(val) => assert!(val.as_numeric() == 3.14),
+    //         _ => panic!("Return failed"),
+    //     }
+
+    //     match exec_single_str(
+    //         "if 2 < 3 then
+    //                 if true then
+    //                     return 3.14;
+    //                 end
+    //         else
+    //             return 6.28;
+    //         end",
+    //     ) {
+    //         StatementResult::Return(val) => assert!(val.as_numeric() == 3.14),
+    //         _ => panic!("Return failed"),
+    //     }
+
+    //     match exec_prog(
+    //         "function return_1()
+    //             return 1;
+    //         end
+    //         return_1();",
+    //     ) {
+    //         StatementResult::Ok(val) => assert!(val.as_numeric() == 1.0),
+    //         _ => panic!("Ok 1 failed"),
+    //     }
+
+    //     match exec_prog(
+    //         "function return_from_if()
+    //             if true then
+    //                 return 3.14;
+    //             end
+    //         end
+    //         return_from_if();",
+    //     ) {
+    //         StatementResult::Ok(val) => assert!(val.as_numeric() == 3.14),
+    //         _ => panic!("Ok 2 failed"),
+    //     }
+
+    //     match exec_prog(
+    //         "function recursive(n)
+    //             if n == 1 then
+    //                 return 3.14;
+    //             else
+    //                 return recursive(1);
+    //             end
+    //         end
+    //         recursive(10);",
+    //     ) {
+    //         StatementResult::Ok(val) => assert!(val.as_numeric() == 3.14),
+    //         _ => panic!("Ok 3 failed"),
+    //     }
+    // }
+
+    // #[test]
+    // fn boolean() {
+    //     let factorial_prog = "function boolean(n)
+    //             if n == 3.14 or n == 6 then
+    //                 return true;
+    //             end
+    //             return false;
+    //         end
+    //         boolean(3.14);";
+    //     match exec_prog(factorial_prog) {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
+    //         _ => panic!("Failure on factorial(5)"),
+    //     }
+    // }
+    // #[test]
+    // fn factorial() {
+    //     let factorial_prog = "function factorial(n)
+    //             if n == 1 or n == 0 then
+    //                 return 1;
+    //             end
+    //             return n * factorial(n - 1);
+    //         end
+    //         factorial(5);";
+    //     match exec_prog(factorial_prog) {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() == 120.0),
+    //         _ => panic!("Failure on factorial(5)"),
+    //     }
+    // }
+
+    // #[test]
+    // fn assign() {
+    //     let prog = "var pi = 3.14;
+    //     pi;";
+    //     match exec_prog(prog) {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() == 3.14),
+    //         _ => panic!("Failure on factorial(5)"),
+    //     }
+    // // }
+    // #[test]
+    // fn dict() {
+    //     let prog = "var dic = {a: 3.14, b: 2, k: 6.28};
+    //     dic.k;";
+    //     match exec_prog(prog) {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() == 6.28),
+    //         StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
+    //         _ => panic!("Failure on dic.c"),
+    //     }
+    // }
 
     #[test]
-    fn try_statements() {
-        let if_example = "if 2 < 3 then 
-                return 3.14;
-            else
-                return 6.28;
-            end";
-        match exec_single_str(if_example) {
-            StatementResult::Return(val) => assert!(val.as_numeric() == 3.14),
-            _ => panic!("Return failed"),
-        }
-
-        match exec_single_str(
-            "if 2 < 3 then 
-                    if true then
-                        return 3.14;
-                    end
-            else
-                return 6.28;
-            end",
-        ) {
-            StatementResult::Return(val) => assert!(val.as_numeric() == 3.14),
-            _ => panic!("Return failed"),
-        }
-
-        match exec_prog(
-            "function return_1()
-                return 1;
-            end
-            return_1();",
-        ) {
-            StatementResult::Ok(val) => assert!(val.as_numeric() == 1.0),
-            _ => panic!("Ok 1 failed"),
-        }
-
-        match exec_prog(
-            "function return_from_if() 
-                if true then
-                    return 3.14;
-                end
-            end
-            return_from_if();",
-        ) {
-            StatementResult::Ok(val) => assert!(val.as_numeric() == 3.14),
-            _ => panic!("Ok 2 failed"),
-        }
-
-        match exec_prog(
-            "function recursive(n) 
-                if n == 1 then
-                    return 3.14;
-                else
-                    return recursive(1);
-                end
-            end
-            recursive(10);",
-        ) {
-            StatementResult::Ok(val) => assert!(val.as_numeric() == 3.14),
-            _ => panic!("Ok 3 failed"),
-        }
-    }
-
-    #[test]
-    fn boolean() {
-        let factorial_prog = "function boolean(n)
-                if n == 3.14 or n == 6 then
-                    return true;
-                end
-                return false;
-            end
-            boolean(3.14);";
-        match exec_prog(factorial_prog) {
-            StatementResult::Ok(v) => assert!(v.as_numeric() == 1.0),
-            _ => panic!("Failure on factorial(5)"),
-        }
-    }
-    #[test]
-    fn factorial() {
-        let factorial_prog = "function factorial(n)
-                if n == 1 or n == 0 then
-                    return 1;
-                end
-                return n * factorial(n - 1);
-            end
-            factorial(5);";
-        match exec_prog(factorial_prog) {
-            StatementResult::Ok(v) => assert!(v.as_numeric() == 120.0),
-            _ => panic!("Failure on factorial(5)"),
-        }
-    }
-
-    #[test]
-    fn assign() {
-        let prog = "var pi = 3.14;
-        pi;";
-        match exec_prog(prog) {
-            StatementResult::Ok(v) => assert!(v.as_numeric() == 3.14),
-            _ => panic!("Failure on factorial(5)"),
-        }
-    }
-
-    #[test]
-    fn dict() {
-        let prog = "var dic = {a: 3.14, b: 2, k: 6.28};
+    fn dict2() {
+        let prog = "var dic = {};
+        dic.k = 12;
         dic.k;";
         match exec_prog(prog) {
-            StatementResult::Ok(v) => assert!(v.as_numeric() == 6.28),
+            StatementResult::Ok(v) => assert!(v.as_numeric() == 12.0),
             StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
             _ => panic!("Failure on dic.c"),
         }
     }
 
-    #[test]
-    fn list() {
-        let prog = "var lis = [1, 2, 3, 4, 42];
-        lis[4];";
-        match exec_prog(prog) {
-            StatementResult::Ok(v) => assert!(v.as_numeric() == 42.0),
-            StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
-            _ => panic!("Failure on lis! Got {:?}", prog),
-        }
-    }
-    #[test]
-    fn strukt() {
-        let prog = "struct Point {x, y}
-        var p = Point(10, 23);
-        p.x;";
-        match exec_prog(prog) {
-            StatementResult::Ok(v) => assert!(v.as_numeric() == 10.0),
-            StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
-            _ => panic!("Failure on structs! Got {:?}", prog),
-        }
-    }
-    #[test]
-    fn enums() {
-        let prog = "enum Colors {Red, Blue = 20}
-        var c = Colors.Blue;
-        c;";
-        match exec_prog(prog) {
-            StatementResult::Ok(v) => assert!(v.as_numeric() == 20.0),
-            StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
-            _ => panic!("Failure on enums! Got {:?}", prog),
-        }
-    }
+    // #[test]
+    // fn list() {
+    //     let prog = "var lis = [1, 2, 3, 4, 42];
+    //     lis[4];";
+    //     match exec_prog(prog) {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() == 42.0),
+    //         StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
+    //         _ => panic!("Failure on lis! Got {:?}", prog),
+    //     }
+    // }
+    // #[test]
+    // fn strukt() {
+    //     let prog = "struct Point {x, y}
+    //     var p = Point(10, 23);
+    //     p.x;";
+    //     match exec_prog(prog) {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() == 10.0),
+    //         StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
+    //         _ => panic!("Failure on structs! Got {:?}", prog),
+    //     }
+    // }
+    // #[test]
+    // fn enums() {
+    //     let prog = "enum Colors {Red, Blue = 20}
+    //     var c = Colors.Blue;
+    //     c;";
+    //     match exec_prog(prog) {
+    //         StatementResult::Ok(v) => assert!(v.as_numeric() == 20.0),
+    //         StatementResult::Failure(why) => panic!(format!("Failure! {}", why)),
+    //         _ => panic!("Failure on enums! Got {:?}", prog),
+    //     }
+    // }
 }
 macro_rules! operation {
     ($lr: expr, $op: tt, $rr: expr, $variant: ident) => {
@@ -324,7 +335,7 @@ impl Evaluator {
             Value::StructInstance(_) => true,
             Value::Enum(_, fields) => fields.len() != 0,
             Value::Nil => false,
-            Value::Collection(map) => map.len() != 0,
+            Value::Collection(map) => map.borrow().len() != 0,
             Value::List(elts) => elts.len() != 0,
         }
     }
@@ -608,7 +619,9 @@ impl Evaluator {
                     Expr::Id(s) => s,
                     _ => return Err(format!("Collections are only indexed by strings")),
                 };
-                Ok(match map.get(id) {
+                let borrowed_map = map.borrow();
+                let value = borrowed_map.get(id);
+                Ok(match value {
                     Some(val) => val.clone(),
                     None => Value::Nil,
                 })
@@ -660,15 +673,16 @@ impl Evaluator {
                 current_env.set(name.clone(), value.clone());
             }
             Get(expr, id) => {
-                let base = get_value!(self.evaluate(expr));;
+                let base = get_value!(self.evaluate(expr));
                 match base {
-                    Value::Collection(mut map) => {
+                    Value::Collection(map) => {
                         let id = match id.as_ref() {
                             Expr::Id(s) => s,
                             _ => return Err(format!("Collections are only indexed by strings")),
                         };
 
-                        map.insert(id.clone(), value.clone());
+                    map.borrow_mut().insert(id.clone(), value.clone());
+                        println!();
                     }
                     Value::List(mut lis) => {
                         let index = match id.as_ref() {
@@ -720,7 +734,7 @@ impl Evaluator {
             let evaluated = get_value!(self.evaluate(&el.1));
             v.insert(el.0.clone(), evaluated);
         }
-        Ok(Value::Collection(v))
+        Ok(Value::Collection(Rc::new(RefCell::new(v))))
     }
 
     fn make_list(&mut self, elts: &Vec<Expr>) -> Result<Value, String> {
