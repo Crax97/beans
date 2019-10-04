@@ -165,7 +165,7 @@ impl Parser {
         println!("Syntax error at line {}: {}", t.get_line(), msg);
     }
 
-    fn expect(&mut self, t: TokenType) {
+    fn expect(&mut self, t: TokenType) -> Option<&Token> {
         if !self.match_next(vec![t]) {
             if let Some(token_type) = self.lexer.peek() {
                 if self.lexer.is_at_end() {
@@ -180,7 +180,9 @@ impl Parser {
                 println!("Expected {:?}, got EOF", t);
             }
             self.had_error = true;
+            return None;
         }
+        self.lexer.prev()
     }
 
     fn statement(&mut self) -> Stmt {
@@ -196,7 +198,9 @@ impl Parser {
         if self.match_next(vec![Enum]) {
             return self.parse_enum();
         }
-
+        if self.match_next(vec![Import]) {
+            return self.parse_import();
+        }
         if self.match_next(vec![If]) {
             return self.parse_if();
         }
@@ -223,6 +227,12 @@ impl Parser {
         let ex = Stmt::ExprStmt(self.expr());
         self.expect(Semicolon);
         ex
+    }
+
+    fn parse_import(&mut self) -> Stmt {
+        let module_name = self.expect(Str).unwrap().as_String();
+        self.expect(Semicolon);
+        Stmt::Import(module_name)
     }
 
     fn parse_var(&mut self) -> Stmt {

@@ -1,7 +1,7 @@
-var fact = import("tests/factorial");
-var actor = import("tests/actor_class");
+import "tests/factorial" ;
+import "tests/actor_class";
 
-print(fact.factorial(5));
+print(factorial.factorial(5));
 
-var actor_dennis = actor.new("Dennis", "Ritchie");
+var actor_dennis = actor_class.new("Dennis", "Ritchie");
 actor_dennis.say_hi();

@@ -2,6 +2,7 @@ program -> statement* EOF
 
 statement -> decl |
 expr ";" |
+importStmt |
 ifStmt |
 whileStmt |
 forStmt |
@@ -43,6 +44,7 @@ call -> index ("." ID)* ( "(" paramlist? ")" )?
 index -> literal ("[" (ID | NUM) "]")*
 literal -> NUM | ID | STRING | "true" | "false" | "(" expr ")" | "nil" | "{" dictelements "}" | "[" listelements "]"
 
+importStmt -> "import" STRING
 ifStmt -> "if" expr "then" statement* ("elif" expr "then" statement* )* ("else" statement*)? "end"
 whileStmt -> "while" expr "do" stmt* "end"
 forStmt -> "for" varDecl ";" expr ";" expr "do" statement* "end"

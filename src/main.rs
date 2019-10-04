@@ -19,15 +19,15 @@ mod tests {
     use super::*;
     #[test]
     fn dynamic_dict() {
-        let prog = "
+        let prog = String::from("
         var dic = {};
         dic.k = 42;
         dic.k;
-        ";
+        ");
 
         let env = beans::create_global();
         let mut evaluator = beans::create_evaluator(env);
-        match beans::exec_string(prog, &mut evaluator) {
+        match beans::do_string(prog, &mut evaluator) {
             StatementResult::Ok(v) => assert!(v.as_numeric() == 42.0),
             _ => panic!("Failure on dict!"),
         }
@@ -71,7 +71,7 @@ fn execute_files(global_env: Rc<RefCell<Env>>, file_names: &Vec<String>) {
                 let lexer = lexer::Lexer::new(content);
                 let mut parser = parser::Parser::new(lexer);
 
-                let file_env = beans::create_with_global(global_env.clone());
+                let file_env = beans::create_enclosing(global_env.clone());
                 let mut evaluator = beans::create_evaluator(file_env);
                 let stmts = parser.parse();
 

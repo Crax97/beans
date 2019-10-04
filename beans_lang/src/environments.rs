@@ -360,49 +360,7 @@ impl Env {
         Value::Callable(Rc::new(Box::new(NativeFn::new(fun, arity))))
     }
 
-    fn import(module: String) -> Value {
-        use std::fs::File;
-        use std::io::Read;
-        use std::ops::Add;
-        let mut file = match File::open(module.clone().add(&".bean")) {
-            Ok(f) => f,
-            Err(why) => {
-                println!("Error while importing file {}: {}", module, why);
-                return Value::Nil;
-            }
-        };
-
-        let mut script_content = String::new();
-        file.read_to_string(&mut script_content).unwrap();
-        let mut env = Env::new();
-        env.build_stdlib();
-
-        let mut evaluator = Evaluator::new_with_global(Rc::new(RefCell::new(env)));
-        match super::beans::exec_string(script_content.as_ref(), &mut evaluator) {
-            StatementResult::Return(val) => val,
-            StatementResult::Failure(why) => {
-                println!("Failure! {}", why);
-                Value::Nil
-            }
-            _ => Value::Nil,
-        }
-    }
-
     pub fn build_stdlib(&mut self) {
-        let import_fun = Env::make_callable(
-            |vals: Vec<Value>| {
-                let first = vals.first().unwrap();
-                if !first.is_string() {
-                    println!("Error! Module name must be a string!");
-                    return Value::Nil;
-                }
-
-                let mod_name = first.string_repr();
-                Env::import(mod_name)
-            },
-            1,
-        );
-
         let print = Env::make_callable(
             |vals: Vec<Value>| {
                 for val in vals {
@@ -422,7 +380,6 @@ impl Env {
         //     }, 0));
 
         self.bind("print", print);
-        self.bind("import", import_fun);
 
         let mut math: HashMap<String, Value> = HashMap::new();
         math.insert(String::from("PI"), Value::Num(std::f64::consts::PI));

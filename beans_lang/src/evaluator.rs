@@ -473,6 +473,21 @@ impl Evaluator {
         }
     }
 
+    fn exec_import(&mut self, module_path: &String) -> StatementResult {
+        use std::ops::Add;
+        let module_name = module_path.split('/').last().unwrap();
+        let env = Env::new_enclosing(self.current.clone());
+        let mut evaluator = Evaluator::new_with_global(Rc::new(RefCell::new(env)));
+        let result = beans::do_file(&module_path.clone().add(".bean"), &mut evaluator);
+        match result {
+            StatementResult::Return(value) => {
+                self.current.borrow_mut().bind(module_name, value.clone());
+                StatementResult::Ok(Value::Nil)
+            }
+            _ => result,
+        }
+    }
+
     fn arithmetic(
         &mut self,
         le: &Expr,
@@ -750,6 +765,7 @@ impl Evaluate<StatementResult, Result<Value, String>> for Evaluator {
             Stmt::StructDef(name, members) => self.exec_structdef(name, members),
             Stmt::EnumDef(name, values) => self.exec_enumdef(name, values),
             Stmt::Return(expr) => self.exec_return(expr),
+            Stmt::Import(module) => self.exec_import(module),
             Stmt::Break => StatementResult::Break,
             Stmt::Continue => StatementResult::Continue,
         }

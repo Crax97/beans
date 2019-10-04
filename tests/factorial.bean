@@ -1,6 +1,4 @@
 var exports = {};
-
-
 function factorial(n)
     if n == 1 or n == 0 then
         return 1;
