@@ -85,6 +85,7 @@ char_map = {
     '+': "Plus",
     '-': "Minus",
     '/': "Slash",
+    '%': "Mod",
     '*': "Star",
     '=': "Equals",
     '<': "Less",

@@ -38,7 +38,7 @@ shift -> bit_or ( ( "<<" | ">>" ) bit_or)*
 bit_or -> bit_and ("|" bit_and)*
 bit_and -> sum ( "&" sum)*
 sum ( ("+" | "-") product)*
-product ->  unary ( ( "*" | "/" ) unary)*
+product ->  unary ( ( "*" | "/" | "%" ) unary)*
 unary -> ("+" | "-" | "not")? call
 call -> index ("." ID)* ( "(" paramlist? ")" )?
 index -> literal ("[" (ID | NUM) "]")*

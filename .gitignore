@@ -2,3 +2,5 @@
 **/*.rs.bk
 beans_lang/target
 beans_lang/**/*.rs.bk
+.idea
+.vscode

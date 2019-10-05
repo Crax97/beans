@@ -143,6 +143,7 @@ impl Lexer {
                 '-' => Some(Minus),
                 '*' => Some(Star),
                 '/' => Some(Slash),
+                '%' => Some(Mod),
                 '#' => {
                     self.comment();
                     continue;

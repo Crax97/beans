@@ -525,6 +525,7 @@ impl Evaluator {
                     0.0
                 }))
             }
+            Mod => operation!(self.evaluate(le), %, self.evaluate(re), Num),
             Less => operation!(self.evaluate(le), <, self.evaluate(re), Bool),
             LessEquals => operation!(self.evaluate(le), <=, self.evaluate(re), Bool),
             More => operation!(self.evaluate(le), >, self.evaluate(re), Bool),

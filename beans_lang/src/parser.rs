@@ -457,7 +457,7 @@ impl Parser {
     }
     fn product(&mut self) -> Expr {
         let mut unary = self.unary();
-        while self.match_next(vec![Star, Slash]) {
+        while self.match_next(vec![Star, Slash, Mod]) {
             let op = self.lexer.prev().unwrap().get_type();
             let right = self.unary();
             unary = Expr::Binary(Box::new(unary), op, Box::new(right))

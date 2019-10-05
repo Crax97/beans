@@ -1,2 +1,0 @@
-If building with stdlib on, build a separate stdlib environment and make it global
-    - No need to rebuild stdlib on import
