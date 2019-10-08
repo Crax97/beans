@@ -94,6 +94,7 @@ pub struct Lexer {
     input_text: Reader,
     line: u16,
     cur_tok: usize,
+    had_error: bool,
 }
 
 impl Lexer {
@@ -103,7 +104,12 @@ impl Lexer {
             input_text: Reader::new(input_text),
             line: 1,
             cur_tok: 0,
+            had_error: false,
         }
+    }
+
+    pub fn had_error(&self) -> bool {
+        self.had_error
     }
 
     pub fn get_line(&self) -> u16 {
@@ -128,6 +134,9 @@ impl Lexer {
 
     pub fn do_lex(&mut self) {
         while let Some(c) = self.input_text.next() {
+            if self.had_error {
+                break;
+            }
             match c {
                 '\t' | ' ' => {
                     continue;
@@ -214,7 +223,8 @@ impl Lexer {
                 continue;
             }
 
-            panic!(format!("Unrecognized token at line {}: {}", self.line, id));
+            println!("Unrecognized token at line {}: {}", self.line, id);
+            self.had_error = true;
         }
     }
 
@@ -240,7 +250,47 @@ impl Lexer {
             if c == '\n' {
                 self.line += 1;
             }
-            s.push(c);
+            if c == '\\' {
+                let next = self.input_text.next();
+                let next = match next {
+                    Some(c) => c,
+                    None => {
+                        println!(
+                            "Got EOF while parsing escape sequence at line {}!",
+                            self.line
+                        );
+                        ' '
+                    }
+                };
+
+                let escape_code: u8 = match next {
+                    'a' => 0x07,  // \a
+                    'b' => 0x08,  // \b
+                    'e' => 0x1B,  // \e
+                    'f' => 0x0C,  // \f
+                    'n' => 0x0A,  // \n
+                    'r' => 0x0D,  // \r
+                    't' => 0x09,  // \t
+                    'v' => 0x0B,  // \v
+                    '\\' => 0x5C, // \
+                    '\'' => 0x27, // '
+                    '"' => 0x22,  // "
+                    '?' => 0x3F,  // ?,
+                    _ => {
+                        println!(
+                            "Unrecognised escape sequence at line {}: {}",
+                            self.line,
+                            format!("{}{}", c, next)
+                        );
+                        0x00
+                    }
+                };
+                if escape_code != 0x00 {
+                    s.push(escape_code as char)
+                }
+            } else {
+                s.push(c);
+            }
         }
         s
     }
@@ -259,10 +309,12 @@ impl Lexer {
         if let Ok(n) = str::parse::<f64>(s.as_ref()) {
             return n;
         } else {
-            panic!(format!(
+            println!(
                 "Faliure parsing number, at line {}! Got {}",
                 self.line, s
-            ))
+            );
+            self.had_error = true;
+            0.0
         }
     }
 

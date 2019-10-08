@@ -1,13 +1,13 @@
 # The Beans scripting language
 *insert some cute kitty toe beans logo here*
 
-## This document is still WIP!
+## This document is still a WIP!
 
 ## Introduction
 Beans is a simple scripting language made because i was curious about the inner mechanisms of interpreters and parsers, and wanted to improve my Rust skills.
 I decided that the best way to learn all that stuff was by implementing my personal scripting language.
 
-Beans is a static scoped language with a dynamic type checker, with the syntax resembling Lua's:
+Beans is a statically scoped language with a dynamic type checker, with the syntax resembling Lua's:
 ```lua
 function factorial(n)
     if n == 1 or n == 0 then

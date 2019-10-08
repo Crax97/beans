@@ -139,6 +139,12 @@ impl Parser {
 
     pub fn parse(&mut self) -> Vec<Stmt> {
         self.lexer.do_lex();
+
+        if self.lexer.had_error() {
+            self.had_error = true;
+            return vec![];
+        }
+
         let mut vec = vec![];
         while !self.lexer.is_at_end() {
             vec.push(self.statement());
