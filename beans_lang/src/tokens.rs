@@ -107,6 +107,37 @@ pub struct Token {
     val: Value,
 }
 
+impl Default for Token {
+    fn default() -> Self {
+        Token {
+            token_type: TokenType::Eof,
+            line: 0,
+            val: Value::Empty
+        }
+    }
+}
+
+impl Clone for Value {
+    fn clone(&self) -> Self {
+        match &self {
+            Value::Empty => Value::Empty,
+            Value::Num(n)=> Value::Num(*n),
+            Value::Str(s) => Value::Str(s.clone()),
+            Value::Id(s) => Value::Id(s.clone())
+        }
+    }
+}
+
+impl Clone for Token {
+    fn clone(&self) -> Self {
+        Token {
+            token_type: self.token_type,
+            line: self.line,
+            val: self.val.clone()
+        }
+    }
+}
+
 impl Token{
     pub fn new(token_type : TokenType, line : u16, val : Value) -> Token {
         Token {

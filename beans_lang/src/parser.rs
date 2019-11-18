@@ -3,7 +3,9 @@ use super::node::*;
 use super::tokens::Token;
 use super::tokens::TokenType;
 use super::tokens::TokenType::*;
+use std::iter::Peekable;
 use std::rc::Rc;
+use std::slice::Iter;
 
 #[cfg(test)]
 mod tests {
@@ -121,15 +123,19 @@ mod tests {
 }
 
 pub struct Parser {
-    lexer: Lexer,
+    tokens: Vec<Token>,
     had_error: bool,
+    ready_to_parse: bool,
+    pos: usize,
 }
 
 impl Parser {
-    pub fn new(lex: Lexer) -> Parser {
+    pub fn new() -> Parser {
         Parser {
-            lexer: lex,
+            tokens: vec![],
             had_error: false,
+            ready_to_parse: true,
+            pos: 0,
         }
     }
 
@@ -137,30 +143,46 @@ impl Parser {
         self.had_error
     }
 
-    pub fn parse(&mut self) -> Vec<Stmt> {
-        self.lexer.do_lex();
-
-        if self.lexer.had_error() {
-            self.had_error = true;
-            return vec![];
+    pub fn add_token(&mut self, tok: Token) {
+        let tok_type = tok.get_type();
+        self.tokens.push(tok);
+        if tok_type == TokenType::Semicolon {
+            self.ready_to_parse = true;
         }
+    }
 
+    pub fn is_ready_to_parse(&self) -> bool {
+        self.ready_to_parse
+    }
+
+    fn peek(&self) -> Option<&Token> {
+        self.tokens.get(self.pos)
+    }
+
+    pub fn prev(&self) -> Option<&Token> {
+        self.tokens.get(self.pos - 1)
+    }
+
+    pub fn next(&mut self) -> Option<&Token> {
+        let nex = self.tokens.get(self.pos);
+        self.pos += 1;
+        nex
+    }
+
+    pub fn parse(&mut self) -> Vec<Stmt> {
         let mut vec = vec![];
-        while !self.lexer.is_at_end() {
+        while self.pos < self.tokens.len() && !self.had_error {
             vec.push(self.statement());
-            if self.had_error {
-                break;
-            }
         }
         vec
     }
 
     fn match_next(&mut self, toks: Vec<TokenType>) -> bool {
-        let peek_result = self.lexer.peek();
+        let peek_result = self.peek();
         if let Some(peek_tok) = peek_result {
             let peek = peek_tok.get_type();
             if toks.contains(&peek) {
-                self.lexer.next();
+                let _ = self.next();
                 return true;
             }
         }
@@ -173,22 +195,18 @@ impl Parser {
 
     fn expect(&mut self, t: TokenType) -> Option<&Token> {
         if !self.match_next(vec![t]) {
-            if let Some(token_type) = self.lexer.peek() {
-                if self.lexer.is_at_end() {
-                    self.syntax_error(token_type, format!("Expected {:?}, got EOF", t));
-                } else {
-                    self.syntax_error(
-                        token_type,
-                        format!("Expected {:?}, got {:?}", t, token_type.get_type()),
-                    );
-                }
+            if let Some(token_type) = self.peek() {
+                self.syntax_error(
+                    token_type,
+                    format!("Expected {:?}, got {:?}", t, token_type.get_type()),
+                );
             } else {
                 println!("Expected {:?}, got EOF", t);
             }
             self.had_error = true;
             return None;
         }
-        self.lexer.prev()
+        self.prev()
     }
 
     fn statement(&mut self) -> Stmt {
@@ -243,8 +261,8 @@ impl Parser {
 
     fn parse_var(&mut self) -> Stmt {
         let id = self.name();
-        let def = if self.lexer.peek().unwrap().get_type() == Equals {
-            self.lexer.next().unwrap();
+        let def = if self.peek().unwrap().get_type() == Equals {
+            self.next().unwrap();
             let exp = self.expr();
             Stmt::Var(id, Some(exp))
         } else {
@@ -260,7 +278,7 @@ impl Parser {
         let mut members: Vec<String> = vec![];
         if self.match_next(vec![RightBrace]) {
             self.syntax_error(
-                self.lexer.peek().unwrap(),
+                &self.peek().unwrap(),
                 String::from("Structs can't be empty!"),
             );
             self.had_error = true;
@@ -279,16 +297,13 @@ impl Parser {
         self.expect(LeftBrace);
         let mut members: Vec<(String, Option<Expr>)> = vec![];
         if self.match_next(vec![RightBrace]) {
-            self.syntax_error(
-                self.lexer.peek().unwrap(),
-                String::from("Enums can't be empty!"),
-            );
+            self.syntax_error(&self.peek().unwrap(), String::from("Enums can't be empty!"));
             self.had_error = true;
         }
         while {
             let next = self.name();
-            let expr = if self.lexer.peek().unwrap().get_type() == Equals {
-                self.lexer.next().unwrap();
+            let expr = if self.peek().unwrap().get_type() == Equals {
+                self.next().unwrap();
                 Some(self.expr())
             } else {
                 None
@@ -305,14 +320,14 @@ impl Parser {
         let mut branches: Vec<(Expr, Vec<Stmt>)> = vec![];
         let if_then = self.if_cond_and_exprs();
         branches.push(if_then);
-        while self.lexer.prev().unwrap().get_type() == Elif {
+        while self.prev().unwrap().get_type() == Elif {
             let elif = self.if_cond_and_exprs();
             branches.push(elif);
         }
 
         let mut else_block: Vec<Stmt> = vec![];
 
-        if self.lexer.prev().unwrap().get_type() == Else {
+        if self.prev().unwrap().get_type() == Else {
             while {
                 let stmt = self.statement();
                 else_block.push(stmt);
@@ -390,7 +405,7 @@ impl Parser {
     fn equality(&mut self) -> Expr {
         let mut or = self.comparison();
         while self.match_next(vec![EqualsEquals, BangEquals]) {
-            let op = self.lexer.prev().unwrap().get_type();
+            let op = self.prev().unwrap().get_type();
             let right = self.comparison();
             or = Expr::Binary(Box::new(or), op, Box::new(right))
         }
@@ -400,7 +415,7 @@ impl Parser {
     fn or(&mut self) -> Expr {
         let mut and = self.and();
         while self.match_next(vec![Or]) {
-            let op = self.lexer.prev().unwrap().get_type();
+            let op = self.prev().unwrap().get_type();
             let right = self.and();
             and = Expr::Binary(Box::new(and), op, Box::new(right))
         }
@@ -410,7 +425,7 @@ impl Parser {
     fn and(&mut self) -> Expr {
         let mut comparison = self.equality();
         while self.match_next(vec![And]) {
-            let op = self.lexer.prev().unwrap().get_type();
+            let op = self.prev().unwrap().get_type();
             let right = self.equality();
             comparison = Expr::Binary(Box::new(comparison), op, Box::new(right))
         }
@@ -419,7 +434,7 @@ impl Parser {
     fn comparison(&mut self) -> Expr {
         let mut shift = self.shift();
         while self.match_next(vec![Less, LessEquals, More, MoreEquals]) {
-            let op = self.lexer.prev().unwrap().get_type();
+            let op = self.prev().unwrap().get_type();
             let right = self.shift();
             shift = Expr::Binary(Box::new(shift), op, Box::new(right))
         }
@@ -428,7 +443,7 @@ impl Parser {
     fn shift(&mut self) -> Expr {
         let mut bit_or = self.bit_or();
         while self.match_next(vec![LessLess, MoreMore]) {
-            let op = self.lexer.prev().unwrap().get_type();
+            let op = self.prev().unwrap().get_type();
             let right = self.bit_or();
             bit_or = Expr::Binary(Box::new(bit_or), op, Box::new(right))
         }
@@ -437,7 +452,7 @@ impl Parser {
     fn bit_or(&mut self) -> Expr {
         let mut bit_and = self.bit_and();
         while self.match_next(vec![Pipe]) {
-            let op = self.lexer.prev().unwrap().get_type();
+            let op = self.prev().unwrap().get_type();
             let right = self.bit_and();
             bit_and = Expr::Binary(Box::new(bit_and), op, Box::new(right))
         }
@@ -446,7 +461,7 @@ impl Parser {
     fn bit_and(&mut self) -> Expr {
         let mut sum = self.sum();
         while self.match_next(vec![Ampersand]) {
-            let op = self.lexer.prev().unwrap().get_type();
+            let op = self.prev().unwrap().get_type();
             let right = self.sum();
             sum = Expr::Binary(Box::new(sum), op, Box::new(right))
         }
@@ -455,7 +470,7 @@ impl Parser {
     fn sum(&mut self) -> Expr {
         let mut product = self.product();
         while self.match_next(vec![Plus, Minus]) {
-            let op = self.lexer.prev().unwrap().get_type();
+            let op = self.prev().unwrap().get_type();
             let right = self.product();
             product = Expr::Binary(Box::new(product), op, Box::new(right))
         }
@@ -464,7 +479,7 @@ impl Parser {
     fn product(&mut self) -> Expr {
         let mut unary = self.unary();
         while self.match_next(vec![Star, Slash, Mod]) {
-            let op = self.lexer.prev().unwrap().get_type();
+            let op = self.prev().unwrap().get_type();
             let right = self.unary();
             unary = Expr::Binary(Box::new(unary), op, Box::new(right))
         }
@@ -472,7 +487,7 @@ impl Parser {
     }
     fn unary(&mut self) -> Expr {
         while self.match_next(vec![Plus, Minus, Not]) {
-            let tok = self.lexer.prev().unwrap();
+            let tok = self.prev().unwrap();
             return Expr::Unary(tok.get_type(), Box::new(self.unary()));
         }
 
@@ -495,9 +510,9 @@ impl Parser {
     fn index(&mut self) -> Expr {
         let mut e = self.literal();
         while self.match_next(vec![LeftSquare]) {
-            let ind = self.lexer.next().unwrap();
+            let ind = self.next().unwrap();
             match ind.get_type() {
-                Identifier | Num => e = Expr::Get(Box::new(e), Box::new(Expr::new_from_tok(ind))),
+                Identifier | Num => e = Expr::Get(Box::new(e), Box::new(Expr::new_from_tok(&ind))),
                 _ => panic!("Indexes can only be identifiers or numbers!"),
             }
             self.expect(RightSquare);
@@ -507,7 +522,7 @@ impl Parser {
 
     fn literal(&mut self) -> Expr {
         if self.match_next(vec![Num, Str, Identifier, True, False]) {
-            return Expr::new_from_tok(self.lexer.prev().unwrap());
+            return Expr::new_from_tok(&self.prev().unwrap());
         }
         if self.match_next(vec![LeftParen]) {
             let e = self.expr();
@@ -524,18 +539,18 @@ impl Parser {
             return self.list();
         }
 
-        if let Some(token) = self.lexer.peek() {
+        if let Some(token) = self.peek() {
             let tok_type = token.get_type();
             self.syntax_error(
-                self.lexer.peek().unwrap(),
+                &self.peek().unwrap(),
                 format!("{:?} can't be parsed as an expression!", tok_type),
             );
             self.had_error = true;
         }
 
-        let previous_type = self.lexer.prev().unwrap().get_type();
+        let previous_type = self.prev().unwrap().get_type();
         self.syntax_error(
-            self.lexer.prev().unwrap(),
+            &self.prev().unwrap(),
             format!("Premature EOF after {:?}!", previous_type),
         );
         self.had_error = true;
@@ -547,7 +562,7 @@ impl Parser {
         let mut v = vec![];
         if !self.match_next(vec![RightBrace]) {
             while {
-                let id = self.lexer.next().unwrap();
+                let id = self.next().unwrap();
                 if id.get_type() != Identifier {
                     panic!("Dictionary keys can only be identifiers!");
                 }
@@ -579,14 +594,11 @@ impl Parser {
     }
 
     fn name(&mut self) -> String {
-        let tok = self.lexer.next().unwrap().get_type();
+        let tok = self.next().unwrap().get_type();
         match tok {
-            Identifier => self.lexer.prev().unwrap().as_Id(), // OK
+            Identifier => self.prev().unwrap().as_Id(), // OK
             _ => {
-                self.syntax_error(
-                    self.lexer.prev().unwrap(),
-                    String::from("Expected identifier!"),
-                );
+                self.syntax_error(&self.prev().unwrap(), String::from("Expected identifier!"));
                 self.had_error = true;
                 String::from("none duh")
             }
@@ -609,7 +621,7 @@ impl Parser {
         let mut v = vec![];
         if !self.match_next(vec![RightParen]) {
             while {
-                let e = self.lexer.next().unwrap();
+                let e = self.next().unwrap();
                 if e.get_type() != Identifier {
                     panic!("Params can only be identifiers!");
                 }

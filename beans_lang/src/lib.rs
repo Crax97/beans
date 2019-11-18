@@ -118,8 +118,13 @@ pub mod beans {
 
     pub fn do_string(program: String, evaluator: &mut Evaluator) -> StatementResult {
 
-        let lexer = Lexer::new(program);
-        let mut parser = Parser::new(lexer);
+        let mut lexer = Lexer::new(program);
+        let mut parser = Parser::new();
+
+        while !lexer.is_at_end() {
+            parser.add_token(lexer.next().unwrap().clone());
+        }
+
         let stmts = parser.parse();
         let mut result: StatementResult = StatementResult::Continue;
         for stmt in stmts {

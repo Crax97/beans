@@ -68,8 +68,14 @@ fn execute_files(global_env: Rc<RefCell<Env>>, file_names: &Vec<String>) {
                     continue;
                 }
 
-                let lexer = lexer::Lexer::new(content);
-                let mut parser = parser::Parser::new(lexer);
+                let mut lexer = lexer::Lexer::new(content);
+                let mut parser = parser::Parser::new();
+
+                lexer.do_lex();
+                while !lexer.is_at_end() {
+                    parser.add_token(lexer.next().unwrap().clone());
+                }
+
 
                 let file_env = beans::create_enclosing(global_env.clone());
                 let mut evaluator = beans::create_evaluator(file_env);
@@ -154,13 +160,15 @@ fn run_interpreter(global_env: Rc<RefCell<Env>>) {
 
             current_scope != 0
         } {}
-        let mut parser = parser::Parser::new(lexer::Lexer::new(program_complete));
-        let stmts = parser.parse();
 
-        if parser.error() {
-            continue;
+        let mut lexer = lexer::Lexer::new(program_complete);
+        lexer.do_lex();
+        let mut parser = parser::Parser::new();
+        while !lexer.is_at_end() {
+            parser.add_token(lexer.next().unwrap().clone());
         }
 
+        let stmts = parser.parse();
         for stmt in stmts {
             match evaluator.execute_statement(&stmt) {
                 StatementResult::Ok(v) => println!("{}", v.stringify()),
