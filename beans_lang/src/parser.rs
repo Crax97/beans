@@ -1,11 +1,8 @@
-use super::lexer::*;
 use super::node::*;
 use super::tokens::Token;
 use super::tokens::TokenType;
 use super::tokens::TokenType::*;
-use std::iter::Peekable;
 use std::rc::Rc;
-use std::slice::Iter;
 
 #[cfg(test)]
 mod tests {
@@ -174,6 +171,7 @@ impl Parser {
         while self.pos < self.tokens.len() && !self.had_error {
             vec.push(self.statement());
         }
+        self.tokens.clear();
         vec
     }
 
