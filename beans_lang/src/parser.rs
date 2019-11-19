@@ -23,12 +23,12 @@ use std::rc::Rc;
 //         run_str("3 < 2 and (2 > 3 or true);");
 //         run_str("pi = 3.14;");
 //         run_str(
-//             "lambda (x) 
+//             "lambda (x)
 //                     2 + 3;
 //                     end;",
 //         );
 //         run_str(
-//             "lam = lambda (x) 
+//             "lam = lambda (x)
 //                     2 + 3;
 //                     end;",
 //         );
@@ -39,12 +39,12 @@ use std::rc::Rc;
 //     fn test_stmts() {
 //         run_str("var pi = 3.14;");
 //         run_str(
-//             "var lam = lambda(x) 
-//                 2 + 3; 
+//             "var lam = lambda(x)
+//                 2 + 3;
 //             end;",
 //         );
 //         run_str(
-//             "if 2 < 3 then 
+//             "if 2 < 3 then
 //                 return 1;
 //             else
 //                 return 0;
@@ -68,13 +68,13 @@ use std::rc::Rc;
 //             }",
 //         );
 //         run_str(
-//             "while true do 
+//             "while true do
 //                 print(true);
 //                 me.x = 42;
 //             end",
 //         );
 //         run_str(
-//             "for i in range(1, 10) do 
+//             "for i in range(1, 10) do
 //                 print(i);
 //             end",
 //         );
@@ -84,7 +84,7 @@ use std::rc::Rc;
 //     fn test_factorial() {
 //         let prog = "
 //         function factorial(n)
-//             if n == 1 or n == 0 then 
+//             if n == 1 or n == 0 then
 //                 return 1;
 //             else
 //                 return n * factorial(n - 1);
@@ -107,7 +107,7 @@ use std::rc::Rc;
 //             if e == Colors.Red then
 //                 s.x = 10;
 //                 s.y = 20;
-//             else 
+//             else
 //                 s.x = 30;
 //                 s.y = 40;
 //             end
@@ -125,6 +125,7 @@ pub struct Parser {
     had_error: bool,
     ready_to_parse: bool,
     pos: usize,
+    scope_level: u8,
 }
 
 impl Parser {
@@ -134,6 +135,7 @@ impl Parser {
             had_error: false,
             ready_to_parse: true,
             pos: 0,
+            scope_level: 0,
         }
     }
 
@@ -146,11 +148,31 @@ impl Parser {
         self.tokens.push(tok);
         if tok_type == TokenType::Semicolon {
             self.ready_to_parse = true;
+        } else {
+            self.ready_to_parse = false;
+        }
+
+        let scope_in = vec![
+            TokenType::Function,
+            TokenType::If,
+            TokenType::For,
+            TokenType::While,
+        ];
+        let scope_out = vec![TokenType::End];
+
+        if scope_in.contains(&tok_type) {
+            self.scope_level += 1;
+        } else if scope_out.contains(&tok_type) && self.scope_level > 0 {
+            self.scope_level -= 1;
         }
     }
 
+    pub fn get_scope_level(&self) -> u8 {
+        self.scope_level
+    }
+
     pub fn is_ready_to_parse(&self) -> bool {
-        self.ready_to_parse
+        self.ready_to_parse && self.scope_level == 0 && !self.had_error
     }
 
     fn peek(&self) -> Option<&Token> {

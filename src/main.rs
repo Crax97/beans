@@ -123,49 +123,23 @@ fn get_line() -> String {
 
 fn run_interpreter(global_env: Rc<RefCell<Env>>) {
     let mut evaluator = evaluator::Evaluator::new_with_global(global_env.clone());
-    let scope_in = ["function", "if", "while", "for"];
-    let scope_out = ["end"];
-    let mut current_scope = 0;
 
     loop {
-        let mut program_complete = String::new();
+        let mut parser = parser::Parser::new();
         while {
-            if current_scope == 0 {
+            if parser.get_scope_level() == 0 {
                 print!("> ");
             } else {
-                print!("{}... ", current_scope);
+                print!("{}... ", parser.get_scope_level());
             }
             std::io::stdout().flush().unwrap();
             let current_line = get_line();
-
-            let should_scope_in = scope_in
-                .iter()
-                .map(|token| current_line.contains(token))
-                .fold(false, |acc, n| acc || n);
-            let should_scope_out = scope_out
-                .iter()
-                .map(|token| current_line.contains(token))
-                .fold(false, |acc, n| acc || n);
-            if should_scope_in {
-                current_scope += 1;
+            let mut lexer = lexer::Lexer::new(current_line);
+            while let Some(token) = lexer.next() {
+                parser.add_token(token.clone());
             }
-            if should_scope_out {
-                if current_scope != 0 {
-                    current_scope -= 1;
-                }
-            }
-
-            program_complete.push_str(&current_line.as_ref());
-
-            current_scope != 0
+            !parser.is_ready_to_parse()
         } {}
-
-        let mut lexer = lexer::Lexer::new(program_complete);
-
-        let mut parser = parser::Parser::new();
-        while let Some(token) = lexer.next() {
-            parser.add_token(token.clone());
-        }
 
         let stmts = parser.parse();
         for stmt in stmts {
