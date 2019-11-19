@@ -55,7 +55,6 @@ mod tests {
             end",
         );
         let mut lexer = Lexer::new(test);
-        lexer.do_lex();
         assert!(!lexer.is_at_end());
         assert!(lexer.peek().unwrap().get_type() == Function);
         assert!(lexer.next().unwrap().get_type() == Function);
@@ -117,6 +116,7 @@ impl Lexer {
     }
 
     pub fn next(&mut self) -> Option<&Token> {
+        self.lex_next();
         self.cur_tok += 1;
         return self.tokens.get(self.cur_tok - 1);
     }
@@ -132,18 +132,18 @@ impl Lexer {
         return self.tokens.get(self.cur_tok - 1);
     }
 
-    pub fn do_lex(&mut self) {
-        while let Some(c) = self.input_text.next() {
-            if self.had_error {
-                break;
-            }
+    fn lex_next(&mut self) {
+        if self.had_error {
+            return;
+        }
+        if let Some(c) = self.input_text.next() {
             match c {
                 '\t' | ' ' => {
-                    continue;
+                    return;
                 }
                 '\n' => {
                     self.line += 1;
-                    continue;
+                    return;
                 }
                 _ => {}
             }
@@ -155,7 +155,7 @@ impl Lexer {
                 '%' => Some(Mod),
                 '#' => {
                     self.comment();
-                    continue;
+                    return;
                 }
                 '(' => Some(LeftParen),
                 ')' => Some(RightParen),
@@ -190,7 +190,7 @@ impl Lexer {
 
             if let Some(tok) = token {
                 self.tokens.push(Token::new(tok, self.line, Value::Empty));
-                continue;
+                return;
             }
 
             let string = match c {
@@ -199,13 +199,13 @@ impl Lexer {
             };
             if let Some(s) = string {
                 self.tokens.push(Token::new(Str, self.line, Value::Str(s)));
-                continue;
+                return;
             }
 
             if c.is_digit(10) {
                 let n = self.num();
                 self.tokens.push(Token::new(Num, self.line, Value::Num(n)));
-                continue;
+                return;
             }
 
             let id = self.id();
@@ -220,7 +220,7 @@ impl Lexer {
                     self.tokens
                         .push(Token::new(Identifier, self.line, Value::Id(id)))
                 }
-                continue;
+                return;
             }
 
             println!("Unrecognized token at line {}: {}", self.line, id);
@@ -309,10 +309,7 @@ impl Lexer {
         if let Ok(n) = str::parse::<f64>(s.as_ref()) {
             return n;
         } else {
-            println!(
-                "Faliure parsing number, at line {}! Got {}",
-                self.line, s
-            );
+            println!("Faliure parsing number, at line {}! Got {}", self.line, s);
             self.had_error = true;
             0.0
         }

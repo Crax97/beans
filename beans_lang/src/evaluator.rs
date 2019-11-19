@@ -46,7 +46,7 @@ mod tests {
 
     fn exec_prog(s: &str) -> StatementResult {
         let lexer = lexer::Lexer::new(String::from(s));
-        let mut parser = parser::Parser::new(lexer);
+        let mut parser = parser::Parser::new();
         let stmts = parser.parse();
 
         let mut evaluator = evaluator::Evaluator::new();

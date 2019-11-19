@@ -7,7 +7,6 @@ use beans_lang::evaluator::Evaluate;
 use beans_lang::evaluator::StatementResult;
 use beans_lang::*;
 use std::cell::RefCell;
-use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
@@ -19,11 +18,13 @@ mod tests {
     use super::*;
     #[test]
     fn dynamic_dict() {
-        let prog = String::from("
+        let prog = String::from(
+            "
         var dic = {};
         dic.k = 42;
         dic.k;
-        ");
+        ",
+        );
 
         let env = beans::create_global();
         let mut evaluator = beans::create_evaluator(env);
@@ -71,11 +72,9 @@ fn execute_files(global_env: Rc<RefCell<Env>>, file_names: &Vec<String>) {
                 let mut lexer = lexer::Lexer::new(content);
                 let mut parser = parser::Parser::new();
 
-                lexer.do_lex();
-                while !lexer.is_at_end() {
-                    parser.add_token(lexer.next().unwrap().clone());
+                while let Some(token) = lexer.next() {
+                    parser.add_token(token.clone());
                 }
-
 
                 let file_env = beans::create_enclosing(global_env.clone());
                 let mut evaluator = beans::create_evaluator(file_env);
@@ -162,10 +161,10 @@ fn run_interpreter(global_env: Rc<RefCell<Env>>) {
         } {}
 
         let mut lexer = lexer::Lexer::new(program_complete);
-        lexer.do_lex();
+
         let mut parser = parser::Parser::new();
-        while !lexer.is_at_end() {
-            parser.add_token(lexer.next().unwrap().clone());
+        while let Some(token) = lexer.next() {
+            parser.add_token(token.clone());
         }
 
         let stmts = parser.parse();
