@@ -210,21 +210,23 @@ impl Parser {
         false
     }
 
-    fn syntax_error(&self, t: &Token, msg: String) {
+    fn syntax_error(&mut self, t: &Token, msg: String) {
         println!("Syntax error at line {}: {}", t.get_line(), msg);
+        self.had_error = true;
     }
 
     fn expect(&mut self, t: TokenType) -> Option<&Token> {
         if !self.match_next(vec![t]) {
-            if let Some(token_type) = self.peek() {
+            let token = self.peek();
+            if let Some(token_type) = token {
+                let token = token_type.clone();
                 self.syntax_error(
-                    token_type,
-                    format!("Expected {:?}, got {:?}", t, token_type.get_type()),
+                    &token,
+                    format!("Expected {:?}, got {:?}", t, token.get_type()),
                 );
             } else {
                 println!("Expected {:?}, got EOF", t);
             }
-            self.had_error = true;
             return None;
         }
         self.prev()
@@ -275,7 +277,7 @@ impl Parser {
     }
 
     fn parse_import(&mut self) -> Stmt {
-        let module_name = self.expect(Str).unwrap().as_String();
+        let module_name = self.expect(Str).unwrap().as_string();
         self.expect(Semicolon);
         Stmt::Import(module_name)
     }
@@ -298,11 +300,8 @@ impl Parser {
         self.expect(LeftBrace);
         let mut members: Vec<String> = vec![];
         if self.match_next(vec![RightBrace]) {
-            self.syntax_error(
-                &self.peek().unwrap(),
-                String::from("Structs can't be empty!"),
-            );
-            self.had_error = true;
+            let previous_token = self.peek().unwrap().clone();
+            self.syntax_error(&previous_token, String::from("Structs can't be empty!"));
         }
         while {
             let next = self.name();
@@ -318,8 +317,8 @@ impl Parser {
         self.expect(LeftBrace);
         let mut members: Vec<(String, Option<Expr>)> = vec![];
         if self.match_next(vec![RightBrace]) {
-            self.syntax_error(&self.peek().unwrap(), String::from("Enums can't be empty!"));
-            self.had_error = true;
+            let previous_token = self.peek().unwrap().clone();
+            self.syntax_error(&previous_token, String::from("Enums can't be empty!"));
         }
         while {
             let next = self.name();
@@ -562,19 +561,18 @@ impl Parser {
 
         if let Some(token) = self.peek() {
             let tok_type = token.get_type();
+            let next_peek = self.peek().unwrap().clone();
             self.syntax_error(
-                &self.peek().unwrap(),
+                &next_peek,
                 format!("{:?} can't be parsed as an expression!", tok_type),
             );
-            self.had_error = true;
         }
 
-        let previous_type = self.prev().unwrap().get_type();
+        let previous_type = self.prev().unwrap().clone();
         self.syntax_error(
-            &self.prev().unwrap(),
+            &previous_type,
             format!("Premature EOF after {:?}!", previous_type),
         );
-        self.had_error = true;
 
         Expr::Nil
     }
@@ -587,7 +585,7 @@ impl Parser {
                 if id.get_type() != Identifier {
                     panic!("Dictionary keys can only be identifiers!");
                 }
-                let id = id.as_Id();
+                let id = id.as_id();
                 self.expect(Colon);
 
                 let expr = self.expr();
@@ -617,10 +615,10 @@ impl Parser {
     fn name(&mut self) -> String {
         let tok = self.next().unwrap().get_type();
         match tok {
-            Identifier => self.prev().unwrap().as_Id(), // OK
+            Identifier => self.prev().unwrap().as_id(), // OK
             _ => {
-                self.syntax_error(&self.prev().unwrap(), String::from("Expected identifier!"));
-                self.had_error = true;
+                let prev_token = self.prev().unwrap().clone();
+                self.syntax_error(&prev_token, String::from("Expected identifier!"));
                 String::from("none duh")
             }
         }
@@ -646,7 +644,7 @@ impl Parser {
                 if e.get_type() != Identifier {
                     panic!("Params can only be identifiers!");
                 }
-                v.push(e.as_Id());
+                v.push(e.as_id());
                 self.match_next(vec![Comma])
             } {}
             self.expect(RightParen);

@@ -40,10 +40,10 @@ impl Expr {
     pub fn new_from_tok(t: &Token) -> Expr {
         match t.get_type() {
             TokenType::Num => Expr::Num(t.as_f64()),
-            TokenType::Str => Expr::Str(t.as_String()),
+            TokenType::Str => Expr::Str(t.as_string()),
             TokenType::True => Expr::Bool(true),
             TokenType::False => Expr::Bool(false),
-            TokenType::Identifier => Expr::Id(t.as_Id()),
+            TokenType::Identifier => Expr::Id(t.as_id()),
             _ => panic!("Can't convert Token to Expr!"),
         }
     }

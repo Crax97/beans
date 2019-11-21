@@ -166,14 +166,14 @@ impl Token{
         }
     }
 
-    pub fn as_String(&self) -> String {
+    pub fn as_string(&self) -> String {
         match &self.val {
             Value::Str(s) => s.clone(),
             _ => panic!("Falied converting Value to String!")
         }
     }
 
-    pub fn as_Id(&self) -> String {
+    pub fn as_id(&self) -> String {
         match &self.val {
             Value::Id(s) => s.clone(),
             _ => panic!("Falied converting Value to Id!")
