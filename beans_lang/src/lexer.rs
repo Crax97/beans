@@ -136,96 +136,92 @@ impl Lexer {
         if self.had_error {
             return;
         }
-        if let Some(c) = self.input_text.next() {
-            match c {
-                '\t' | ' ' => {
-                    return;
-                }
-                '\n' => {
-                    self.line += 1;
-                    return;
-                }
-                _ => {}
+        let mut c: char = ' ';
+        while let Some(n) = self.input_text.next() {
+            if n == '\n' {
+                self.line += 1;
+            } else if n == '#' {
+                self.comment();
+            } else if !"\r\t ".contains(n) {
+                c = n;
+                break;
             }
-            let token = match c {
-                '+' => Some(Plus),
-                '-' => Some(Minus),
-                '*' => Some(Star),
-                '/' => Some(Slash),
-                '%' => Some(Mod),
-                '#' => {
-                    self.comment();
-                    return;
-                }
-                '(' => Some(LeftParen),
-                ')' => Some(RightParen),
-                '{' => Some(LeftBrace),
-                '}' => Some(RightBrace),
-                '<' => Some(match_next! { self.input_text,
-                    Less,
-                    '<' => LessLess,
-                    '=' => LessEquals
-                }),
-                '>' => Some(match_next! { self.input_text,
-                    More,
-                    '>' => MoreMore,
-                    '=' => MoreEquals
-                }),
-                '=' => Some(match_next! {  self.input_text,
-                    Equals,
-                    '=' => EqualsEquals,
-                }),
-                '!' => Some(match_next! {  self.input_text,
-                    Not,
-                    '=' => BangEquals,
-                }),
-                ',' => Some(Comma),
-                '.' => Some(Dot),
-                ';' => Some(Semicolon),
-                ':' => Some(Colon),
-                '[' => Some(LeftSquare),
-                ']' => Some(RightSquare),
-                _ => None,
-            };
-
-            if let Some(tok) = token {
-                self.tokens.push(Token::new(tok, self.line, Value::Empty));
-                return;
-            }
-
-            let string = match c {
-                '"' | '\'' => Some(self.string(c)),
-                _ => None,
-            };
-            if let Some(s) = string {
-                self.tokens.push(Token::new(Str, self.line, Value::Str(s)));
-                return;
-            }
-
-            if c.is_digit(10) {
-                let n = self.num();
-                self.tokens.push(Token::new(Num, self.line, Value::Num(n)));
-                return;
-            }
-
-            let id = self.id();
-            if c.is_alphabetic() {
-                if TokenMap.contains_key(&id) {
-                    self.tokens.push(Token::new(
-                        *TokenMap.get(&id).unwrap(),
-                        self.line,
-                        Value::Id(id),
-                    ));
-                } else {
-                    self.tokens
-                        .push(Token::new(Identifier, self.line, Value::Id(id)))
-                }
-                return;
-            }
-
-            println!("Unrecognized token at line {}: {}", self.line, id);
-            self.had_error = true;
         }
+
+        if c == ' ' {
+            return;
+        }
+
+        let token = match c {
+            '+' => Some(Plus),
+            '-' => Some(Minus),
+            '*' => Some(Star),
+            '/' => Some(Slash),
+            '%' => Some(Mod),
+            '(' => Some(LeftParen),
+            ')' => Some(RightParen),
+            '{' => Some(LeftBrace),
+            '}' => Some(RightBrace),
+            '<' => Some(match_next! { self.input_text,
+                Less,
+                '<' => LessLess,
+                '=' => LessEquals
+            }),
+            '>' => Some(match_next! { self.input_text,
+                More,
+                '>' => MoreMore,
+                '=' => MoreEquals
+            }),
+            '=' => Some(match_next! {  self.input_text,
+                Equals,
+                '=' => EqualsEquals,
+            }),
+            '!' => Some(match_next! {  self.input_text,
+                Not,
+                '=' => BangEquals,
+            }),
+            ',' => Some(Comma),
+            '.' => Some(Dot),
+            ';' => Some(Semicolon),
+            ':' => Some(Colon),
+            '[' => Some(LeftSquare),
+            ']' => Some(RightSquare),
+            _ => None,
+        };
+
+        if let Some(tok) = token {
+            self.tokens.push(Token::new(tok, self.line, Value::Empty));
+            return;
+        }
+        if "\'\"".contains(c) {
+            let s = self.string(c);
+            self.tokens.push(Token::new(Str, self.line, Value::Str(s)));
+            return;
+        }
+
+        if c.is_digit(10) {
+            let n = self.num();
+            self.tokens.push(Token::new(Num, self.line, Value::Num(n)));
+            return;
+        }
+
+        let id = self.id();
+        if c.is_alphabetic() {
+            if TokenMap.contains_key(&id) {
+                self.tokens.push(Token::new(
+                    *TokenMap.get(&id).unwrap(),
+                    self.line,
+                    Value::Id(id),
+                ));
+            } else {
+                self.tokens
+                    .push(Token::new(Identifier, self.line, Value::Id(id)))
+            }
+            return;
+        }
+
+        self.tokens.push(Token::new(Eof, self.line, Value::Empty));
+        self.had_error = true;
     }
 
     pub fn is_at_end(&self) -> bool {
